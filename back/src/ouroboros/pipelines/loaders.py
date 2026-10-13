@@ -14,12 +14,15 @@ from ouroboros.canonical import (
     CandidaturaRow,
     CpfPessoaRow,
     DespesaRow,
+    EmendaFavorecidoRow,
+    EmendaRow,
     EnteRow,
     MandatoRow,
     PartidoRow,
     PessoaRow,
 )
 from ouroboros.models.despesa import DespesaGabinete
+from ouroboros.models.emenda import Emenda, EmendaFavorecido
 from ouroboros.models.ente import Ente
 from ouroboros.models.mandato import Candidatura, Mandato
 from ouroboros.models.partido import Partido
@@ -84,6 +87,7 @@ async def load_parlamentares(
     mandatos = _of(rows, MandatoRow)
     await _upsert_mandatos(session, mandatos, resolucao.politico_por_id_externo)
     await relink_despesas(session)
+    await relink_emendas(session)
     return len(mandatos)
 
 
@@ -247,4 +251,70 @@ async def _relink_por_tokens(session: AsyncSession) -> None:
             )
             .values(politico_id=achados.pop())
             .execution_options(synchronize_session=False)
+        )
+
+
+async def _copy(session: AsyncSession, table: str, columns: list[str], rows: Sequence) -> None:
+    conn = await session.connection()
+    raw = await conn.get_raw_connection()
+    await raw.driver_connection.copy_records_to_table(
+        table, columns=columns, records=[tuple(getattr(r, c) for c in columns) for r in rows]
+    )
+
+
+async def load_emendas(session: AsyncSession, rows: Sequence[BaseModel], particao: str) -> int:
+    """Substitui o ano inteiro de emendas e de pagamentos a favorecidos (sem chave por linha)."""
+    ano = int(particao)
+    emendas = _of(rows, EmendaRow)
+    favorecidos = _of(rows, EmendaFavorecidoRow)
+    for model in (Emenda, EmendaFavorecido):
+        await session.execute(delete(model).where(model.ano == ano))
+    if emendas:
+        await _copy(session, Emenda.__tablename__, list(EmendaRow.model_fields), emendas)
+    if favorecidos:
+        await _copy(
+            session,
+            EmendaFavorecido.__tablename__,
+            list(EmendaFavorecidoRow.model_fields),
+            favorecidos,
+        )
+    await relink_emendas(session, ano)
+    return len(emendas) + len(favorecidos)
+
+
+# Nome parlamentar (Câmara/Senado) que aponta para um único político.
+_NOMES_PARLAMENTARES = """
+    SELECT nome, min(politico_id) AS politico_id FROM (
+        SELECT i.nome_na_fonte_normalizado AS nome, i.politico_id
+        FROM politico_identificador i WHERE i.origem IN ('camara', 'senado')
+        UNION ALL
+        SELECT p.nome_normalizado, p.id FROM politico p
+        WHERE EXISTS (
+            SELECT 1 FROM politico_identificador i
+            WHERE i.politico_id = p.id AND i.origem IN ('camara', 'senado')
+        )
+    ) n
+    GROUP BY nome
+    HAVING count(DISTINCT politico_id) = 1
+"""
+
+
+async def relink_emendas(session: AsyncSession, ano: int | None = None) -> None:
+    """Liga autor da emenda (só nome + código CGU) ao político pelo nome parlamentar.
+
+    Emendas de bancada, comissão e relator não casam (autor coletivo) e ficam sem político.
+    """
+    filtro_ano = "AND e.ano = :ano" if ano is not None else ""
+    for tabela in (Emenda.__tablename__, EmendaFavorecido.__tablename__):
+        await session.execute(
+            text(
+                f"""
+                UPDATE {tabela} e SET politico_id = m.politico_id
+                FROM ({_NOMES_PARLAMENTARES}) m
+                WHERE e.politico_id IS NULL
+                  AND e.autor_nome_normalizado = m.nome
+                  {filtro_ano}
+                """
+            ),
+            {"ano": ano} if ano is not None else {},
         )

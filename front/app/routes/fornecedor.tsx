@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 
 import { DespesasTable, ResumoCharts } from "~/components/custom/despesas-panel"
 import { ExportButton, SelectFilter, yearOptions } from "~/components/custom/filters"
+import { MapaButton } from "~/components/grafo/mapa-button"
 import { KpiGrid } from "~/components/custom/kpi"
 import { PageHeader } from "~/components/custom/states"
 import { useApi } from "~/context/api"
@@ -30,6 +31,7 @@ export default function Fornecedor() {
         description={<span className="font-mono">{formatDocumento(documento)}</span>}
         actions={
           <>
+            {/^\d{14}$/.test(documento) &&<MapaButton no={`doc:${documento}`} ano={ano} />}
             <SelectFilter value={ano} onChange={setAno} placeholder={t("filters.ano")} options={yearOptions()} />
             <ExportButton
               onExport={() => api.exportCsv("/despesas", filtro, `fornecedor_${documento}`)}

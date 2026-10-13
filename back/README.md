@@ -28,13 +28,14 @@ variáveis `OUROBOROS_*`.
 | job | fonte | partição |
 | --- | --- | --- |
 | `ibge` | IBGE localidades | `atual` |
-| `tse_candidatos` | TSE `consulta_cand_{ano}.zip` | ano da eleição |
+| `tse_candidatos` | TSE `consulta_cand_{ano}.zip` + `motivo_cassacao_{ano}.zip` | ano da eleição |
 | `camara_deputados` | API Câmara v2 + `deputados.csv` | legislatura |
 | `senado_senadores` | API Senado (lista + detalhe) | legislatura |
 | `camara_ceap` | `Ano-{ano}.csv.zip` (cota parlamentar) | ano |
 | `senado_ceaps` | `despesa_ceaps_{ano}.csv` | ano |
 | `fotos_parlamentares` | URL oficial da foto (Câmara, Senado) — só valida, não baixa | `camara`, `senado` |
 | `tse_fotos` | `foto_cand{ano}_{UF}_div.zip` — baixa e serve | ano da eleição |
+| `partidos_logos` | Wikidata (número TSE → logo) + Wikimedia Commons — baixa e serve | `atual` |
 
 ## Endpoints
 
@@ -44,6 +45,8 @@ variáveis `OUROBOROS_*`.
 - `GET /v1/despesas?ano=&mes=&verba=&uf=&categoria=&fornecedor=` e `/v1/despesas/resumo`
 - `GET /v1/politicos/{id}/foto` (redireciona para a foto principal) e `/fotos` (todas)
 - `GET /v1/fotos/{id}` — arquivo (fotos do TSE) ou redirecionamento para a URL oficial
+- `GET /v1/partidos` e `/v1/partidos/{sigla}` trazem `logo.url`; `/v1/partidos/{sigla}/logo`
+  redireciona para a logo principal e `/v1/partidos/logos/{id}` serve o arquivo
 - `GET /v1/entes`, `GET /v1/fontes` (status das ingestões)
 
 ## Fotos
@@ -56,6 +59,25 @@ Resumo e perfil de político trazem `foto.url`, pronta para `<img src>`:
 
 Foto principal: a mais recente (último ano de mandato ou ano da eleição); empate → foto oficial
 da casa; depois maior resolução.
+
+## Logos de partidos
+
+O TSE não serve logos fora do navegador (403). `partidos_logos` busca no Wikidata o item com o
+número TSE do partido (P4251) e a logo dele (P154), e baixa o arquivo do Commons já rasterizado
+em PNG (muitas são SVG). `logo.url_origem` aponta para a página do arquivo no Commons, com
+autoria e licença. Número TSE é reaproveitado (25 era DEM, hoje PRD), então o item só vale se a
+sigla ou o nome do partido batem com sigla, rótulo ou alias do item. Arquivo do Commons já
+baixado não é baixado de novo. Wikimedia bloqueia User-Agent sem contato (403): defina
+`OUROBOROS_HTTP_USER_AGENT` com URL ou e-mail do projeto.
+
+Partido sem logo no Wikidata (ou logo errada) recebe logo manual, que tem prioridade:
+
+```bash
+poetry run ouroboros logo PSOL --arquivo psol.png          # guarda o arquivo
+poetry run ouroboros logo 50 --url https://.../psol.png    # baixa e guarda
+poetry run ouroboros logo PSOL --url https://... --sem-baixar  # só valida; API redireciona
+poetry run ouroboros logo PSOL --remover                   # volta para a coletada
+```
 
 Listagens são paginadas por cursor (`next_cursor`) e respondem CSV com `Accept: text/csv`
 (próximo cursor no header `X-Next-Cursor`). Valores monetários saem como string decimal.

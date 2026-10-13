@@ -80,6 +80,10 @@ class Candidatura(LineageMixin, Base):
     partido_sigla: Mapped[str | None] = mapped_column(String(30))
     situacao_candidatura: Mapped[str | None] = mapped_column(String(60))
     situacao_turno: Mapped[str | None] = mapped_column(String(60))
+    # motivo_cassacao do TSE: por que a candidatura foi indeferida/cassada
+    motivos_situacao: Mapped[list[str]] = mapped_column(
+        ARRAY(String(120)), default=list, server_default="{}"
+    )
     eleito: Mapped[bool] = mapped_column(Boolean)
 
     __table_args__ = (

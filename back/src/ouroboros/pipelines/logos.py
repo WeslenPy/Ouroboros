@@ -9,11 +9,13 @@ Fontes:
   URL pode ser só guardada (servida direto da origem) em vez de baixada.
 
 O TSE não serve logos fora do navegador (403), por isso o Wikidata. Número TSE é reaproveitado
-quando um partido é extinto (14 era PTB), então o item só vale se a sigla ou o nome batem com
-o partido carregado, ou se é o único item ainda ativo com aquele número. Roda depois de
-`tse_candidatos`, que carrega os partidos.
+quando um partido é extinto (25 era DEM, hoje é PRD), então o item só vale se a sigla ou o
+nome do partido carregado batem com a sigla, o rótulo ou um alias do item; os aliases cobrem
+partidos renomeados no mesmo item (PMN -> Mobiliza). Roda depois de `tse_candidatos`, que
+carrega os partidos.
 """
 
+import asyncio
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -51,7 +53,10 @@ WHERE {
   FILTER(?rank != wikibase:DeprecatedRank)
   OPTIONAL { ?item wdt:P576 ?extinto }
   OPTIONAL { ?item wdt:P1813 ?sigla }
-  OPTIONAL { ?item rdfs:label ?rotulo FILTER(LANG(?rotulo) IN ("pt", "pt-br")) }
+  OPTIONAL {
+    { ?item rdfs:label ?rotulo } UNION { ?item skos:altLabel ?rotulo }
+    FILTER(LANG(?rotulo) IN ("pt", "pt-br"))
+  }
 }
 GROUP BY ?item ?numero ?logo ?rank ?extinto
 """
@@ -75,7 +80,7 @@ class LogoWikidata:
     arquivo: str  # nome do arquivo no Commons
     preferida: bool
     extinto: bool
-    nomes: frozenset[str]  # siglas e rótulos do item, já em `_chave`
+    nomes: frozenset[str]  # siglas, rótulo e aliases do item, já em `_chave`
 
 
 @dataclass(frozen=True)
@@ -120,10 +125,7 @@ def escolher_logos(
         nomes = {_chave(p.sigla), _chave(p.nome)}
         batem = [c for c in candidatas if c.nomes & nomes]
         if not batem:
-            ativos = {c.item for c in candidatas if not c.extinto}
-            if len(ativos) != 1:
-                continue
-            batem = [c for c in candidatas if c.item in ativos]
+            continue
         # item ativo antes de extinto; logo de rank preferido antes de normal; nome desempata
         escolhidas[p.id] = min(batem, key=lambda c: (c.extinto, not c.preferida, c.arquivo))
     return escolhidas
@@ -284,7 +286,8 @@ async def registrar_logo_manual(
         raise ValueError("url precisa ser http(s)")
     if arquivo is not None:
         # só o nome: caminho local do servidor não sai na API
-        dados, origem_url, baixar = arquivo.read_bytes(), f"arquivo:{arquivo.name}", True
+        dados = await asyncio.to_thread(arquivo.read_bytes)
+        origem_url, baixar = f"arquivo:{arquivo.name}", True
     else:
         async with HttpClient() as client:
             dados, origem_url = (await client.get(url)).content, url

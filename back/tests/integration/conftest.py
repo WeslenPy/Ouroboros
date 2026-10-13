@@ -17,6 +17,8 @@ TEST_DB = os.environ.get("OUROBOROS_TEST_DATABASE_URL")
 BACK = Path(__file__).resolve().parents[2]
 
 TABELAS = [
+    "emenda_favorecido",
+    "emenda",
     "despesa_gabinete",
     "candidatura",
     "mandato",

@@ -10,9 +10,17 @@
     "fontes": "Fontes e ingestão",
     "matches": "Qualidade",
     "apiDocs": "Documentação da API",
-    "groups": { "data": "Dados", "ops": "Operação" }
+    "groups": {
+      "data": "Dados",
+      "ops": "Operação"
+    },
+    "grafo": "Mapa de conexões",
+    "emendas": "Emendas"
   },
-  "languages": { "portuguese": "Português", "english": "English" },
+  "languages": {
+    "portuguese": "Português",
+    "english": "English"
+  },
   "common": {
     "loading": "Carregando…",
     "noData": "Nenhum dado encontrado",
@@ -39,12 +47,16 @@
     "placeholder": "Buscar político…",
     "minChars": "Digite ao menos 3 letras"
   },
-  "health": { "online": "API online", "offline": "API fora do ar", "checking": "Verificando API…" },
+  "health": {
+    "online": "API online",
+    "offline": "API fora do ar",
+    "checking": "Verificando API…"
+  },
   "errors": {
+    "404": "Página não encontrada",
     "title": "Algo deu errado",
     "details": "Ocorreu um erro inesperado.",
     "error": "Erro",
-    "404": "Página não encontrada",
     "notFound": "O endereço não existe ou foi removido.",
     "load": "Não foi possível carregar os dados"
   },
@@ -82,10 +94,24 @@
     "deputado_estadual": "Deputado estadual",
     "vereador": "Vereador"
   },
-  "esfera": { "federal": "Federal", "estadual": "Estadual", "municipal": "Municipal" },
-  "genero": { "M": "Masculino", "F": "Feminino" },
-  "status": { "sucesso": "Sucesso", "falha": "Falha", "rodando": "Rodando" },
-  "verba": { "CEAP": "CEAP (Câmara)", "CEAPS": "CEAPS (Senado)" },
+  "esfera": {
+    "federal": "Federal",
+    "estadual": "Estadual",
+    "municipal": "Municipal"
+  },
+  "genero": {
+    "M": "Masculino",
+    "F": "Feminino"
+  },
+  "status": {
+    "sucesso": "Sucesso",
+    "falha": "Falha",
+    "rodando": "Rodando"
+  },
+  "verba": {
+    "CEAP": "CEAP (Câmara)",
+    "CEAPS": "CEAPS (Senado)"
+  },
   "metodo": {
     "origem": "origem",
     "cpf": "CPF",
@@ -172,7 +198,9 @@
     "porCategoria": "Por categoria",
     "maioresFornecedores": "Maiores fornecedores"
   },
-  "fornecedor": { "recebido": "Total recebido" },
+  "fornecedor": {
+    "recebido": "Total recebido"
+  },
   "candidatura": {
     "listDesc": "Registros de candidatura do TSE.",
     "ano": "Ano",
@@ -239,6 +267,113 @@
     "motivos": {
       "nome_nascimento_ambiguo": "Nome + nascimento ambíguo",
       "nome_aproximado_ambiguo": "Nome aproximado ambíguo"
+    }
+  },
+  "grafo": {
+    "buscar": "Buscar político ou colar CNPJ…",
+    "abrirCnpj": "Abrir rede do CNPJ {{cnpj}}",
+    "heroTitulo": "Siga o dinheiro público",
+    "heroTexto": "Escolha um político e veja, num mapa, para onde vai a verba do gabinete, quem recebe as emendas que ele indica e quais outros políticos estão ligados às mesmas empresas e entidades.",
+    "sugestoes": "Quem mais indicou emendas no ano passado",
+    "heroGrupos": {
+      "gastos": "Cota parlamentar: passagens, aluguel de escritório, divulgação… e as empresas que receberam.",
+      "emendas": "Dinheiro do orçamento federal indicado pelo parlamentar: área, cidade de destino e quem recebeu.",
+      "conexoes": "Outros políticos que pagaram a mesma empresa ou mandaram emendas à mesma entidade."
+    },
+    "grupos": {
+      "carreira": "Carreira",
+      "gastos": "Gastos do gabinete",
+      "emendas": "Emendas",
+      "conexoes": "Conexões"
+    },
+    "tipos": {
+      "politico": "Político",
+      "hub": "Tema",
+      "partido": "Partido",
+      "cargo": "Mandato",
+      "eleicao": "Eleição",
+      "categoria": "Tipo de gasto",
+      "fornecedor": "Empresa / fornecedor",
+      "area": "Área",
+      "municipio": "Destino",
+      "favorecido": "Quem recebeu",
+      "autor": "Autor coletivo"
+    },
+    "explorar": "Explorar a partir daqui",
+    "abrirPagina": "Abrir página",
+    "verRede": "Ver no mapa de conexões",
+    "ligacoes": "Ligações",
+    "resumo": "Em resumo",
+    "comoLer": "Como ler o mapa",
+    "dica1": "Cada cor é um tema: carreira, gastos do gabinete, emendas e conexões com outros políticos.",
+    "dica2": "Linhas mais grossas = mais dinheiro. Passe o mouse num item para ver o caminho até o centro.",
+    "dica3": "Clique num item com +N para abrir os detalhes; dois cliques num político, empresa ou cidade centralizam o mapa nele.",
+    "dicaCanvas": "Clique para detalhes · dois cliques para explorar",
+    "explica": {
+      "centro_politico": "Mapa de {{centro}}: carreira política, como usou a verba do gabinete e para onde mandou emendas.",
+      "centro_doc": "Mapa de {{centro}}: parlamentares que pagaram esta empresa com a cota parlamentar e emendas que chegaram até ela.",
+      "centro_municipio": "Mapa de {{centro}}: quem mandou emendas para a cidade e em quais áreas o dinheiro foi aplicado.",
+      "hub_carreira_politico": "Cargos que {{centro}} ocupou, eleições que disputou e partidos aos quais esteve ligado(a).",
+      "hub_gastos_politico": "{{centro}} usou {{valor}} da cota parlamentar — verba que paga despesas do mandato, como passagens, escritório e divulgação.",
+      "hub_gastos_doc": "{{centro}} recebeu {{valor}} de parlamentares, pagos com a cota parlamentar.",
+      "hub_emendas_politico": "{{centro}} indicou emendas ao orçamento federal, dinheiro público direcionado a cidades e entidades. {{valor}} já foram pagos.",
+      "hub_emendas_doc": "{{centro}} recebeu {{valor}} em pagamentos de emendas parlamentares.",
+      "hub_autores_municipio": "Parlamentares e bancadas que mandaram emendas para {{centro}}: {{valor}} pagos.",
+      "hub_areas_municipio": "Em que áreas o dinheiro das emendas foi aplicado em {{centro}}.",
+      "categoria": "{{valor}} gastos com “{{rotulo}}”.",
+      "categoria_doc": "Parlamentares pagaram {{valor}} a {{centro}} por “{{rotulo}}”.",
+      "fornecedor": "{{centro}} pagou {{valor}} a {{rotulo}} com a cota parlamentar.",
+      "area": "{{valor}} em emendas de {{centro}} foram para a área de {{rotulo}}.",
+      "area_municipio": "{{valor}} em emendas para a área de {{rotulo}}.",
+      "municipio": "{{valor}} em emendas de {{centro}} tiveram como destino {{rotulo}}.",
+      "favorecido": "{{rotulo}} recebeu {{valor}} de emendas indicadas por {{centro}}.",
+      "autor": "{{rotulo}} (emenda coletiva: bancada, comissão ou relator) — {{valor}}.",
+      "cargo": "Mandato de {{rotulo}} ({{detalhe}}).",
+      "eleicao": "{{rotulo}}: {{detalhe}}.",
+      "partido": "{{centro}} esteve ligado(a) ao partido {{rotulo}}.",
+      "partido_de": "{{pai}} é do partido {{rotulo}}.",
+      "conexao_fornecedor": "{{rotulo}} também pagou {{valor}} a {{pai}}.",
+      "conexao_favorecido": "{{rotulo}} também mandou {{valor}} em emendas para {{pai}}.",
+      "politico_pagou": "{{rotulo}} pagou {{valor}} a {{centro}} com a cota parlamentar.",
+      "politico_emendou": "Emendas de {{rotulo}} pagaram {{valor}} a {{centro}}.",
+      "politico_autor": "{{rotulo}} mandou {{valor}} em emendas para {{centro}}.",
+      "politico": "{{rotulo}}"
+    },
+    "recolher": "Recolher",
+    "expandirTudo": "Expandir tudo"
+  },
+  "emenda": {
+    "listDesc": "Emendas parlamentares ao orçamento federal: quem indicou, para onde e para quê.",
+    "codigo": "Emenda",
+    "autor": "Autor",
+    "destino": "Destino",
+    "area": "Área",
+    "tipo": "Tipo",
+    "empenhado": "Empenhado",
+    "pago": "Pago",
+    "naoPago": "Empenhado não pago",
+    "quantidade": "Emendas",
+    "execucao": "Execução",
+    "empenhadoHint": "Valor reservado no orçamento",
+    "pagoHint": "Pago no ano + restos a pagar pagos",
+    "execucaoHint": "Pago ÷ empenhado",
+    "porAno": "Empenhado e pago por ano",
+    "porTipo": "Por tipo de emenda",
+    "porArea": "Por área",
+    "porUf": "Por UF de destino",
+    "maioresAutores": "Quem mais indicou",
+    "maioresDestinos": "Principais destinos",
+    "maioresFavorecidos": "Quem mais recebeu",
+    "filtroArea": "Área (Saúde…)",
+    "filtroAutor": "Autor…",
+    "qtd_one": "{{count, number}} emenda",
+    "qtd_other": "{{count, number}} emendas",
+    "tipos": {
+      "individual": "Individual",
+      "especial": "Individual (Pix)",
+      "bancada": "Bancada",
+      "comissao": "Comissão",
+      "relator": "Relator"
     }
   }
 }

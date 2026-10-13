@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     senado_legislaturas: list[int] = [55, 56, 57]
     despesas_anos: list[int] = list(range(2015, date.today().year + 1))
     tse_anos: list[int] = [2014, 2018, 2022]
+    emendas_anos: list[int] = list(range(2014, date.today().year + 1))
     # ZIPs de fotos do TSE: um por UF; "BR" = candidatos a presidente
     tse_fotos_ufs: list[str] = (
         "AC AL AM AP BA CE DF ES GO MA MG MS MT PA PB PE PI PR RJ RN RO RR RS SC SE SP TO BR"

@@ -56,6 +56,11 @@ export function formatCompactNumber(value: number): string {
   const abs = Math.abs(value)
   const sign = value < 0 ? "-" : ""
 
+  if (abs >= 1_000_000_000) {
+    const scaled = abs / 1_000_000_000
+    return `${sign}${formatCompactScaled(scaled)}B`
+  }
+
   if (abs >= 1_000_000) {
     const scaled = abs / 1_000_000
     return `${sign}${formatCompactScaled(scaled)}M`

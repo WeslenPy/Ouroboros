@@ -18,6 +18,7 @@ GRUPO = {
     "senado_senadores": "parlamentares",
     "camara_ceap": "despesas",
     "senado_ceaps": "despesas",
+    "transparencia_emendas": "emendas",
     "fotos_parlamentares": "fotos",
     "tse_fotos": "fotos",
     "partidos_logos": "fotos",

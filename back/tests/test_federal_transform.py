@@ -112,4 +112,9 @@ async def test_tse_candidatos():
     weverton = candidaturas["WEVERTON"]
     assert (weverton.cargo, weverton.uf, weverton.eleito) == ("GOVERNADOR", "MA", False)
     assert candidaturas["TABATA AMARAL"].eleito is True
+    assert candidaturas["DELIO PINHEIRO"].motivos_situacao == [
+        "Impugnação",
+        "Ficha limpa (LC 64/90)",
+    ]
+    assert candidaturas["TABATA AMARAL"].motivos_situacao == []
     assert {"PSB", "PDT", "PL"} <= partidos

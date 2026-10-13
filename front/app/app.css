@@ -223,3 +223,10 @@ body {
     margin: 0;
   }
 }
+
+/* linha "andando" do caminho em destaque no grafo */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}

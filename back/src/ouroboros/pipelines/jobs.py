@@ -8,17 +8,19 @@ from ouroboros.connectors.base import Connector
 from ouroboros.connectors.camara import CamaraCeapConnector, CamaraDeputadosConnector
 from ouroboros.connectors.ibge import IbgeConnector
 from ouroboros.connectors.senado import SenadoCeapsConnector, SenadoSenadoresConnector
+from ouroboros.connectors.transparencia import TransparenciaEmendasConnector
 from ouroboros.connectors.tse import TseCandidatosConnector
 from ouroboros.core.db import get_engine
 from ouroboros.core.settings import get_settings
 from ouroboros.pipelines.fotos import coletar_fotos_casa, coletar_fotos_tse
-from ouroboros.pipelines.logos import coletar_logos_wikidata
 from ouroboros.pipelines.loaders import (
     load_candidaturas,
     load_despesas,
+    load_emendas,
     load_entes,
     load_parlamentares,
 )
+from ouroboros.pipelines.logos import coletar_logos_wikidata
 from ouroboros.pipelines.runner import Loader, run_connector
 
 
@@ -90,6 +92,12 @@ JOBS: dict[str, Job] = {
             SenadoCeapsConnector,
             load_despesas,
             lambda: _s(get_settings().despesas_anos),
+        ),
+        _conector(
+            "transparencia_emendas",
+            TransparenciaEmendasConnector,
+            load_emendas,
+            lambda: _s(get_settings().emendas_anos),
         ),
         Job(
             "fotos_parlamentares",

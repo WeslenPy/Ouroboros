@@ -2,9 +2,11 @@
 
 Traz CPF, nome civil e nascimento de todo candidato: é a base mais forte para ligar a mesma
 pessoa entre fontes. Cada SQ_CANDIDATO aparece uma vez por turno; fica a linha do último turno.
+
+motivo_cassacao_{ano}.zip explica candidaturas indeferidas/cassadas (ex.: "Ficha limpa (LC 64/90)").
 """
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Sequence
 
 from pydantic import BaseModel
 
@@ -15,6 +17,9 @@ from ouroboros.core.privacy import cpf_hmac
 from ouroboros.core.raw_store import RawRecord
 
 CAND_URL = "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_{ano}.zip"
+MOTIVO_URL = (
+    "https://cdn.tse.jus.br/estatistica/sead/odsele/motivo_cassacao/motivo_cassacao_{ano}.zip"
+)
 
 ORIGEM = "tse"
 GENERO = {"MASCULINO": "M", "FEMININO": "F"}
@@ -25,6 +30,26 @@ UF_INVALIDA = {"BR", "ZZ", "VT"}
 def _uf(value: str | None) -> str | None:
     value = clean(value)
     return value if value and len(value) == 2 and value not in UF_INVALIDA else None
+
+
+def _linhas(record: RawRecord) -> Iterator[dict[str, str]]:
+    membros = zip_members(record.payload)
+    # o arquivo _BRASIL junta todas as UFs; sem ele, lê UF a UF
+    brasil = [n for n in membros if n.upper().endswith("_BRASIL.CSV")]
+    for nome in brasil or list(membros):
+        yield from read_csv(membros[nome], encoding="latin-1")
+
+
+def _motivos(records: Sequence[RawRecord]) -> dict[str, list[str]]:
+    """SQ_CANDIDATO -> motivos distintos, na ordem do arquivo."""
+    motivos: dict[str, list[str]] = {}
+    for record in records:
+        for r in _linhas(record):
+            motivo = (clean(r.get("DS_MOTIVO")) or "").rstrip(".")
+            lista = motivos.setdefault(r["SQ_CANDIDATO"], [])
+            if motivo and motivo not in lista:
+                lista.append(motivo)
+    return motivos
 
 
 class TseCandidatosConnector(HttpConnector):
@@ -38,19 +63,20 @@ class TseCandidatosConnector(HttpConnector):
         async with self.http() as client:
             r = await client.get(CAND_URL.format(ano=particao))
             yield self.raw("consulta_cand", particao, r, "application/zip")
+            r = await client.get(MOTIVO_URL.format(ano=particao))
+            yield self.raw("motivo_cassacao", particao, r, "application/zip")
 
     def transform(self, records: Sequence[RawRecord]) -> Sequence[BaseModel]:
         ultimo_turno: dict[str, tuple[RawRecord, dict[str, str]]] = {}
         for record in records:
-            membros = zip_members(record.payload)
-            # o arquivo _BRASIL junta todas as UFs; sem ele, lê UF a UF
-            brasil = [n for n in membros if n.upper().endswith("_BRASIL.CSV")]
-            for nome in brasil or list(membros):
-                for r in read_csv(membros[nome], encoding="latin-1"):
-                    sq = r["SQ_CANDIDATO"]
-                    atual = ultimo_turno.get(sq)
-                    if atual is None or int(r["NR_TURNO"]) >= int(atual[1]["NR_TURNO"]):
-                        ultimo_turno[sq] = (record, r)
+            if record.recurso != "consulta_cand":
+                continue
+            for r in _linhas(record):
+                sq = r["SQ_CANDIDATO"]
+                atual = ultimo_turno.get(sq)
+                if atual is None or int(r["NR_TURNO"]) >= int(atual[1]["NR_TURNO"]):
+                    ultimo_turno[sq] = (record, r)
+        motivos = _motivos([r for r in records if r.recurso == "motivo_cassacao"])
 
         pessoas: list[PessoaRow] = []
         candidaturas: list[CandidaturaRow] = []
@@ -89,6 +115,7 @@ class TseCandidatosConnector(HttpConnector):
                     partido_sigla=clean(r["SG_PARTIDO"]),
                     situacao_candidatura=clean(r["DS_SITUACAO_CANDIDATURA"]),
                     situacao_turno=situacao_turno,
+                    motivos_situacao=motivos.get(sq, []),
                     eleito=situacao_turno in ELEITO,
                     **lineage,
                 )

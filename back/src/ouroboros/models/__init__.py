@@ -1,5 +1,6 @@
 from ouroboros.models.base import Base
 from ouroboros.models.despesa import DespesaGabinete
+from ouroboros.models.emenda import Emenda, EmendaFavorecido
 from ouroboros.models.ente import CODIGO_UNIAO, Ente, Esfera
 from ouroboros.models.fonte import FonteExecucao, StatusExecucao
 from ouroboros.models.foto import PartidoLogo, PoliticoFoto, RecursoRemoto
@@ -13,6 +14,8 @@ __all__ = [
     "Candidatura",
     "Cargo",
     "DespesaGabinete",
+    "Emenda",
+    "EmendaFavorecido",
     "Ente",
     "Esfera",
     "FonteExecucao",

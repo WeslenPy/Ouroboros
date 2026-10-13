@@ -146,6 +146,7 @@ export interface CandidaturaOut {
   partido_sigla: string | null
   situacao_candidatura: string | null
   situacao_turno: string | null
+  motivos_situacao: string[]
   eleito: boolean
 }
 
@@ -230,12 +231,22 @@ export interface Estatisticas {
   ultima_ingestao_em: string | null
 }
 
+export interface LogoOut {
+  id: number
+  url: string
+  origem: string
+  largura: number | null
+  altura: number | null
+  url_origem: string
+}
+
 export interface PartidoOut {
   id: number
   sigla: string
   nome: string
   numero_tse: number | null
   ativo: boolean
+  logo: LogoOut | null
 }
 
 export interface PartidoDetalhe extends PartidoOut {
@@ -285,4 +296,108 @@ export interface FiltroDespesa {
   politico?: number
   data_inicio?: string
   data_fim?: string
+}
+
+// Emendas parlamentares (Portal da Transparência)
+export interface EmendaOut {
+  id: number
+  codigo: string
+  ano: number
+  tipo: string
+  numero: string | null
+  autor_nome: string
+  politico_id: number | null
+  localidade: string | null
+  municipio_codigo_ibge: number | null
+  municipio_nome: string | null
+  uf: string | null
+  funcao: string | null
+  subfuncao: string | null
+  programa: string | null
+  acao: string | null
+  valor_empenhado: Decimal
+  valor_liquidado: Decimal
+  valor_pago: Decimal
+  valor_rp_pago: Decimal
+  fonte_url: string
+}
+
+export interface FavorecidoOut {
+  id: number
+  emenda_codigo: string
+  ano: number
+  mes: number
+  tipo: string
+  autor_nome: string
+  politico_id: number | null
+  favorecido_documento: string | null
+  favorecido_nome: string
+  favorecido_tipo: string | null
+  natureza_juridica: string | null
+  uf: string | null
+  municipio_nome: string | null
+  valor: Decimal
+}
+
+export interface TotalChave {
+  chave: string | null
+  rotulo: string | null
+  empenhado: Decimal
+  pago: Decimal
+  quantidade: number
+}
+
+export interface ResumoEmendas {
+  quantidade: number
+  empenhado: Decimal
+  pago: Decimal
+  por_ano: TotalChave[]
+  por_tipo: TotalChave[]
+  por_funcao: TotalChave[]
+  por_uf: TotalChave[]
+  maiores_autores: TotalChave[]
+  maiores_destinos: TotalChave[]
+  maiores_favorecidos: TotalChave[]
+}
+
+// Grafo de relações
+export type GrafoTipo =
+  | "politico"
+  | "hub"
+  | "partido"
+  | "cargo"
+  | "eleicao"
+  | "categoria"
+  | "fornecedor"
+  | "area"
+  | "municipio"
+  | "favorecido"
+  | "autor"
+export type GrafoGrupo = "centro" | "carreira" | "gastos" | "emendas" | "conexoes"
+
+export interface GrafoNo {
+  id: string
+  tipo: GrafoTipo
+  rotulo: string
+  detalhe: string | null
+  valor: Decimal | null
+  nivel: number
+  grupo: GrafoGrupo
+  pai: string | null
+  imagem: string | null
+  chave: string | null
+}
+
+export interface GrafoAresta {
+  id: string
+  origem: string
+  destino: string
+  tipo: string
+  valor: Decimal | null
+}
+
+export interface Grafo {
+  centro: string
+  nos: GrafoNo[]
+  arestas: GrafoAresta[]
 }

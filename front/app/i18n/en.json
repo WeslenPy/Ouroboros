@@ -10,9 +10,17 @@
     "fontes": "Sources & ingestion",
     "matches": "Data quality",
     "apiDocs": "API docs",
-    "groups": { "data": "Data", "ops": "Operations" }
+    "groups": {
+      "data": "Data",
+      "ops": "Operations"
+    },
+    "grafo": "Connections map",
+    "emendas": "Amendments"
   },
-  "languages": { "portuguese": "Português", "english": "English" },
+  "languages": {
+    "portuguese": "Português",
+    "english": "English"
+  },
   "common": {
     "loading": "Loading…",
     "noData": "No data found",
@@ -39,12 +47,16 @@
     "placeholder": "Search politician…",
     "minChars": "Type at least 3 letters"
   },
-  "health": { "online": "API online", "offline": "API offline", "checking": "Checking API…" },
+  "health": {
+    "online": "API online",
+    "offline": "API offline",
+    "checking": "Checking API…"
+  },
   "errors": {
+    "404": "Page not found",
     "title": "Something went wrong",
     "details": "An unexpected error occurred.",
     "error": "Error",
-    "404": "Page not found",
     "notFound": "This address does not exist or was removed.",
     "load": "Could not load data"
   },
@@ -82,10 +94,24 @@
     "deputado_estadual": "State deputy",
     "vereador": "City councilor"
   },
-  "esfera": { "federal": "Federal", "estadual": "State", "municipal": "Municipal" },
-  "genero": { "M": "Male", "F": "Female" },
-  "status": { "sucesso": "Success", "falha": "Failed", "rodando": "Running" },
-  "verba": { "CEAP": "CEAP (Chamber)", "CEAPS": "CEAPS (Senate)" },
+  "esfera": {
+    "federal": "Federal",
+    "estadual": "State",
+    "municipal": "Municipal"
+  },
+  "genero": {
+    "M": "Male",
+    "F": "Female"
+  },
+  "status": {
+    "sucesso": "Success",
+    "falha": "Failed",
+    "rodando": "Running"
+  },
+  "verba": {
+    "CEAP": "CEAP (Chamber)",
+    "CEAPS": "CEAPS (Senate)"
+  },
   "metodo": {
     "origem": "origin",
     "cpf": "CPF",
@@ -172,7 +198,9 @@
     "porCategoria": "By category",
     "maioresFornecedores": "Top suppliers"
   },
-  "fornecedor": { "recebido": "Total received" },
+  "fornecedor": {
+    "recebido": "Total received"
+  },
   "candidatura": {
     "listDesc": "TSE candidacy records.",
     "ano": "Year",
@@ -239,6 +267,113 @@
     "motivos": {
       "nome_nascimento_ambiguo": "Ambiguous name + birth date",
       "nome_aproximado_ambiguo": "Ambiguous approximate name"
+    }
+  },
+  "grafo": {
+    "buscar": "Search politician or paste CNPJ…",
+    "abrirCnpj": "Open network for CNPJ {{cnpj}}",
+    "heroTitulo": "Follow the public money",
+    "heroTexto": "Pick a politician and see on a map where their office allowance goes, who receives the budget amendments they direct, and which other politicians are tied to the same companies and entities.",
+    "sugestoes": "Top amendment authors last year",
+    "heroGrupos": {
+      "gastos": "Parliamentary allowance: flights, office rent, advertising… and the companies paid.",
+      "emendas": "Federal budget money directed by the legislator: area, destination city and recipient.",
+      "conexoes": "Other politicians who paid the same company or sent amendments to the same entity."
+    },
+    "grupos": {
+      "carreira": "Career",
+      "gastos": "Office expenses",
+      "emendas": "Amendments",
+      "conexoes": "Connections"
+    },
+    "tipos": {
+      "politico": "Politician",
+      "hub": "Topic",
+      "partido": "Party",
+      "cargo": "Term",
+      "eleicao": "Election",
+      "categoria": "Expense type",
+      "fornecedor": "Company / supplier",
+      "area": "Area",
+      "municipio": "Destination",
+      "favorecido": "Recipient",
+      "autor": "Collective author"
+    },
+    "explorar": "Explore from here",
+    "abrirPagina": "Open page",
+    "verRede": "View on connections map",
+    "ligacoes": "Links",
+    "resumo": "Summary",
+    "comoLer": "How to read the map",
+    "dica1": "Each color is a topic: career, office expenses, amendments and connections to other politicians.",
+    "dica2": "Thicker lines = more money. Hover an item to see its path to the center.",
+    "dica3": "Click an item showing +N to open its details; double-click a politician, company or city to center the map on it.",
+    "dicaCanvas": "Click for details · double-click to explore",
+    "explica": {
+      "centro_politico": "Map of {{centro}}: political career, how the office allowance was spent and where amendments went.",
+      "centro_doc": "Map of {{centro}}: legislators who paid this company with their allowance and amendments that reached it.",
+      "centro_municipio": "Map of {{centro}}: who sent amendments to the city and in which areas the money was applied.",
+      "hub_carreira_politico": "Offices {{centro}} held, elections contested and parties joined.",
+      "hub_gastos_politico": "{{centro}} spent {{valor}} of the parliamentary allowance — money for office costs such as flights, rent and advertising.",
+      "hub_gastos_doc": "{{centro}} received {{valor}} from legislators, paid with the parliamentary allowance.",
+      "hub_emendas_politico": "{{centro}} directed federal budget amendments to cities and entities. {{valor}} has been paid.",
+      "hub_emendas_doc": "{{centro}} received {{valor}} in amendment payments.",
+      "hub_autores_municipio": "Legislators and caucuses who sent amendments to {{centro}}: {{valor}} paid.",
+      "hub_areas_municipio": "Areas where amendment money was applied in {{centro}}.",
+      "categoria": "{{valor}} spent on “{{rotulo}}”.",
+      "categoria_doc": "Legislators paid {{valor}} to {{centro}} for “{{rotulo}}”.",
+      "fornecedor": "{{centro}} paid {{valor}} to {{rotulo}} with the allowance.",
+      "area": "{{valor}} of amendments by {{centro}} went to {{rotulo}}.",
+      "area_municipio": "{{valor}} in amendments for {{rotulo}}.",
+      "municipio": "{{valor}} of amendments by {{centro}} went to {{rotulo}}.",
+      "favorecido": "{{rotulo}} received {{valor}} from amendments directed by {{centro}}.",
+      "autor": "{{rotulo}} (collective amendment: caucus, committee or rapporteur) — {{valor}}.",
+      "cargo": "Term as {{rotulo}} ({{detalhe}}).",
+      "eleicao": "{{rotulo}}: {{detalhe}}.",
+      "partido": "{{centro}} was affiliated with {{rotulo}}.",
+      "partido_de": "{{pai}} belongs to {{rotulo}}.",
+      "conexao_fornecedor": "{{rotulo}} also paid {{valor}} to {{pai}}.",
+      "conexao_favorecido": "{{rotulo}} also sent {{valor}} in amendments to {{pai}}.",
+      "politico_pagou": "{{rotulo}} paid {{valor}} to {{centro}} with the allowance.",
+      "politico_emendou": "Amendments by {{rotulo}} paid {{valor}} to {{centro}}.",
+      "politico_autor": "{{rotulo}} sent {{valor}} in amendments to {{centro}}.",
+      "politico": "{{rotulo}}"
+    },
+    "recolher": "Collapse",
+    "expandirTudo": "Expand all"
+  },
+  "emenda": {
+    "listDesc": "Parliamentary amendments to the federal budget: who directed them, where and for what.",
+    "codigo": "Amendment",
+    "autor": "Author",
+    "destino": "Destination",
+    "area": "Area",
+    "tipo": "Type",
+    "empenhado": "Committed",
+    "pago": "Paid",
+    "naoPago": "Committed, not paid",
+    "quantidade": "Amendments",
+    "execucao": "Execution",
+    "empenhadoHint": "Amount reserved in the budget",
+    "pagoHint": "Paid in year + carried-over payments",
+    "execucaoHint": "Paid ÷ committed",
+    "porAno": "Committed and paid per year",
+    "porTipo": "By amendment type",
+    "porArea": "By area",
+    "porUf": "By destination state",
+    "maioresAutores": "Top authors",
+    "maioresDestinos": "Top destinations",
+    "maioresFavorecidos": "Top recipients",
+    "filtroArea": "Area (Health…)",
+    "filtroAutor": "Author…",
+    "qtd_one": "{{count, number}} amendment",
+    "qtd_other": "{{count, number}} amendments",
+    "tipos": {
+      "individual": "Individual",
+      "especial": "Individual (Pix)",
+      "bancada": "Caucus",
+      "comissao": "Committee",
+      "relator": "Rapporteur"
     }
   }
 }

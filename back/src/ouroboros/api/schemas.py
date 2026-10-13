@@ -88,6 +88,29 @@ class FotoOut(_Out):
         )
 
 
+class LogoOut(_Out):
+    id: int
+    url: str = Field(
+        description="URL para exibir: arquivo servido por esta API (/v1/partidos/logos/{id}) "
+        "ou, para logo manual só com link, a URL de origem"
+    )
+    origem: str = Field(description="wikidata (coletada) ou manual")
+    largura: int | None = Field(description="Só para logos armazenadas")
+    altura: int | None
+    url_origem: str = Field(description="Onde a logo foi obtida (página do arquivo no Commons)")
+
+    @classmethod
+    def de(cls, logo) -> "LogoOut":
+        return cls(
+            id=logo.id,
+            url=f"/v1/partidos/logos/{logo.id}" if logo.armazenada else logo.url_origem,
+            origem=logo.origem,
+            largura=logo.largura,
+            altura=logo.altura,
+            url_origem=logo.url_origem,
+        )
+
+
 class PoliticoResumo(_Out):
     id: int
     nome: str
@@ -124,6 +147,7 @@ class CandidaturaOut(_Out):
     partido_sigla: str | None
     situacao_candidatura: str | None
     situacao_turno: str | None
+    motivos_situacao: list[str]
     eleito: bool
 
 
@@ -225,6 +249,7 @@ class PartidoOut(_Out):
     nome: str
     numero_tse: int | None
     ativo: bool
+    logo: LogoOut | None = None
 
 
 class PartidoDetalhe(PartidoOut):
@@ -266,3 +291,97 @@ class MatchPendenteOut(_Out):
     politico_ids: list[int]
     resolvido: bool
     criado_em: datetime
+
+
+class EmendaOut(_Out):
+    id: int
+    codigo: str
+    ano: int
+    tipo: str
+    numero: str | None
+    autor_nome: str
+    politico_id: int | None
+    localidade: str | None
+    municipio_codigo_ibge: int | None
+    municipio_nome: str | None
+    uf: str | None
+    funcao: str | None
+    subfuncao: str | None
+    programa: str | None
+    acao: str | None
+    valor_empenhado: Decimal
+    valor_liquidado: Decimal
+    valor_pago: Decimal = Field(description="Pago no ano da emenda")
+    valor_rp_pago: Decimal = Field(description="Restos a pagar pagos em anos seguintes")
+    fonte_url: str
+
+
+class FavorecidoOut(_Out):
+    id: int
+    emenda_codigo: str
+    ano: int
+    mes: int
+    tipo: str
+    autor_nome: str
+    politico_id: int | None
+    favorecido_documento: str | None
+    favorecido_nome: str
+    favorecido_tipo: str | None
+    natureza_juridica: str | None
+    uf: str | None
+    municipio_nome: str | None
+    valor: Decimal
+
+
+class TotalChave(BaseModel):
+    chave: str | None
+    rotulo: str | None = None
+    empenhado: Decimal
+    pago: Decimal
+    quantidade: int
+
+
+class ResumoEmendas(BaseModel):
+    quantidade: int
+    empenhado: Decimal
+    pago: Decimal = Field(description="Pago no ano + restos a pagar pagos")
+    por_ano: list[TotalChave]
+    por_tipo: list[TotalChave]
+    por_funcao: list[TotalChave]
+    por_uf: list[TotalChave]
+    maiores_autores: list[TotalChave] = Field(description="chave = politico_id (ou nome)")
+    maiores_destinos: list[TotalChave] = Field(description="chave = código IBGE (ou localidade)")
+    maiores_favorecidos: list[TotalChave] = Field(description="chave = documento do favorecido")
+
+
+class GrafoNo(BaseModel):
+    id: str = Field(description="tipo:chave, único no grafo")
+    tipo: str = Field(
+        description="politico, hub, partido, cargo, eleicao, categoria, fornecedor, area, "
+        "municipio, favorecido"
+    )
+    rotulo: str
+    detalhe: str | None = None
+    valor: Decimal | None = None
+    nivel: int = Field(description="Distância do centro (0 = centro)")
+    grupo: str = Field(description="carreira, gastos, emendas, conexoes")
+    pai: str | None = Field(None, description="Nó de onde este se ramifica (para o layout)")
+    imagem: str | None = None
+    chave: str | None = Field(None, description="ID para abrir o nó como centro de outro grafo")
+
+
+class GrafoAresta(BaseModel):
+    id: str
+    origem: str
+    destino: str
+    tipo: str = Field(
+        description="filiacao, mandato, candidatura, gasto, pagamento, emenda, destino, "
+        "recebimento, conexao"
+    )
+    valor: Decimal | None = None
+
+
+class Grafo(BaseModel):
+    centro: str
+    nos: list[GrafoNo]
+    arestas: list[GrafoAresta]

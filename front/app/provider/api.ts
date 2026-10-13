@@ -2,13 +2,16 @@ import { HOST_API } from "~/constants/url"
 import type {
   CandidaturaOut,
   DespesaOut,
+  EmendaOut,
   EnteDetalhe,
   EnteOut,
   Estatisticas,
   ExecucaoOut,
+  FavorecidoOut,
   FiltroDespesa,
   FonteStatus,
   FotoOut,
+  Grafo,
   Health,
   MandatoOut,
   MatchPendenteOut,
@@ -20,6 +23,7 @@ import type {
   PoliticoResumo,
   ResumoCandidaturas,
   ResumoDespesas,
+  ResumoEmendas,
 } from "~/interface/api"
 
 export class ApiError extends Error {
@@ -176,6 +180,27 @@ export class OuroborosApi {
   }
   matches(params: Params) {
     return this.get<Page<MatchPendenteOut>>("/matches-pendentes", params)
+  }
+
+  // emendas
+  emendas(params: Params) {
+    return this.get<Page<EmendaOut>>("/emendas", params)
+  }
+  emendasResumo(params: Params) {
+    return this.get<ResumoEmendas>("/emendas/resumo", params)
+  }
+  emendasFavorecidos(params: Params) {
+    return this.get<Page<FavorecidoOut>>("/emendas/favorecidos", params)
+  }
+
+  /** Grafo centrado num nó: "politico:ID", "doc:CNPJ" ou "municipio:CODIGO_IBGE". */
+  grafo(no: string, params: Params) {
+    const i = no.indexOf(":")
+    const rota = ({ politico: "politico", doc: "documento", municipio: "municipio" } as const)[
+      no.slice(0, i) as "politico" | "doc" | "municipio"
+    ]
+    if (!rota) return Promise.reject(new ApiError(400, "nó inválido"))
+    return this.get<Grafo>(`/grafo/${rota}/${encodeURIComponent(no.slice(i + 1))}`, params)
   }
 }
 

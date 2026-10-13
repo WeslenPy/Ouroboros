@@ -91,6 +91,7 @@ class CandidaturaRow(Lineage):
     partido_sigla: str | None
     situacao_candidatura: str | None
     situacao_turno: str | None
+    motivos_situacao: list[str]
     eleito: bool
 
 
@@ -116,3 +117,45 @@ class DespesaRow(Lineage):
     valor_documento: Decimal | None
     valor_glosa: Decimal | None
     valor_liquido: Decimal
+
+
+class EmendaRow(Lineage):
+    codigo: str
+    ano: int
+    tipo: str
+    numero: str | None
+    autor_codigo: str | None
+    autor_nome: str
+    autor_nome_normalizado: str
+    localidade: str | None
+    municipio_codigo_ibge: int | None
+    municipio_nome: str | None
+    uf: str | None
+    regiao: str | None
+    funcao: str | None
+    subfuncao: str | None
+    programa: str | None
+    acao: str | None
+    valor_empenhado: Decimal
+    valor_liquidado: Decimal
+    valor_pago: Decimal
+    valor_rp_inscrito: Decimal
+    valor_rp_cancelado: Decimal
+    valor_rp_pago: Decimal
+
+
+class EmendaFavorecidoRow(Lineage):
+    emenda_codigo: str
+    ano: int
+    mes: int
+    tipo: str
+    autor_codigo: str | None
+    autor_nome: str
+    autor_nome_normalizado: str
+    favorecido_documento: str | None
+    favorecido_nome: str
+    favorecido_tipo: str | None
+    natureza_juridica: str | None
+    uf: str | None
+    municipio_nome: str | None
+    valor: Decimal

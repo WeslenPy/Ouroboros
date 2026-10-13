@@ -74,9 +74,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "logo":
         if args.sem_baixar and not args.url:
             parser.error("--sem-baixar só vale com --url")
+        # ValueError cobre imagem inválida e URL não http(s)
         try:
             print(_logo(args))
-        # ValueError cobre imagem inválida e URL não http(s)
         except (PartidoNaoEncontrado, ValueError, OSError, httpx.HTTPError) as exc:
             parser.exit(1, f"erro: {exc}\n")
     return 0

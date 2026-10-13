@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "@/ui/badge"
 import { Card, CardContent } from "@/ui/card"
 import { FilterBar, SelectFilter } from "~/components/custom/filters"
+import { PartidoLogo } from "~/components/custom/partido-logo"
 import { BlockSkeleton, EmptyState, ErrorState, PageHeader } from "~/components/custom/states"
 import { useApi } from "~/context/api"
 import { usePageTitle } from "~/context/page"
@@ -69,14 +70,16 @@ export default function PartidosList() {
                 <Card className="h-full gap-3 py-4 transition-colors hover:border-primary/40">
                   <CardContent className="flex flex-col gap-3 px-4">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      <PartidoLogo partido={p} className="size-12 text-base" />
+                      <div className="min-w-0 flex-1">
                         <p className="text-lg font-semibold">{p.sigla}</p>
                         <p className="truncate text-xs text-muted-foreground" title={p.nome}>
                           {p.nome}
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        {p.numero_tse && (
+                        {/* sem logo, o número já aparece no lugar dela */}
+                        {p.numero_tse && p.logo && (
                           <span className="font-mono text-xl font-bold text-muted-foreground/60">
                             {p.numero_tse}
                           </span>

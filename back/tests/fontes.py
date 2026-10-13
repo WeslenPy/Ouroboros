@@ -10,6 +10,7 @@ from ouroboros.connectors.base import Connector
 from ouroboros.connectors.camara import CamaraCeapConnector, CamaraDeputadosConnector
 from ouroboros.connectors.ibge import IbgeConnector
 from ouroboros.connectors.senado import SenadoCeapsConnector, SenadoSenadoresConnector
+from ouroboros.connectors.transparencia import TransparenciaEmendasConnector
 from ouroboros.connectors.tse import TseCandidatosConnector
 from ouroboros.core.raw_store import RawRecord
 
@@ -83,5 +84,17 @@ def senado_ceaps() -> Connector:
 def tse_candidatos() -> Connector:
     return com_fixtures(
         TseCandidatosConnector,
-        [("consulta_cand", zipped(FIXTURES / "tse" / "consulta_cand_2022_BRASIL.csv"))],
+        [
+            ("consulta_cand", zipped(FIXTURES / "tse" / "consulta_cand_2022_BRASIL.csv")),
+            # motivos fictícios: só exercitam a junção por SQ_CANDIDATO
+            ("motivo_cassacao", zipped(FIXTURES / "tse" / "motivo_cassacao_2022_BRASIL.csv")),
+        ],
     )
+
+
+def transparencia_emendas() -> Connector:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for nome in ("EmendasParlamentares.csv", "EmendasParlamentares_PorFavorecido.csv"):
+            zf.write(FIXTURES / "transparencia" / nome, nome)
+    return com_fixtures(TransparenciaEmendasConnector, [("emendas_zip", buf.getvalue())])

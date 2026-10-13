@@ -90,12 +90,17 @@ export default function Candidaturas() {
         accessorFn: (c) => c.situacao_turno ?? c.situacao_candidatura ?? "",
         header: t("candidatura.situacao"),
         cell: ({ row }) => (
-          <Badge
-            variant={row.original.eleito ? "default" : "outline"}
-            className={cn(row.original.eleito && "bg-emerald-600 text-white")}
-          >
-            {row.original.situacao_turno ?? row.original.situacao_candidatura ?? "—"}
-          </Badge>
+          <>
+            <Badge
+              variant={row.original.eleito ? "default" : "outline"}
+              className={cn(row.original.eleito && "bg-emerald-600 text-white")}
+            >
+              {row.original.situacao_turno ?? row.original.situacao_candidatura ?? "—"}
+            </Badge>
+            {row.original.motivos_situacao.length > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">{row.original.motivos_situacao.join(" · ")}</p>
+            )}
+          </>
         ),
       },
     ],

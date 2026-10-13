@@ -12,6 +12,7 @@ import { DataTable } from "~/components/custom/data-table"
 import { KpiGrid } from "~/components/custom/kpi"
 import { useCargoLabel } from "~/components/custom/labels"
 import { OrigemCard } from "~/components/custom/origem"
+import { PartidoLogo } from "~/components/custom/partido-logo"
 import { PoliticoAvatar } from "~/components/custom/politico-avatar"
 import { BlockSkeleton, ErrorState, PageHeader } from "~/components/custom/states"
 import { useApi } from "~/context/api"
@@ -85,11 +86,7 @@ export default function PartidoDetail() {
           </Button>
         }
       >
-        {p.numero_tse && (
-          <div className="flex size-14 items-center justify-center rounded-lg bg-primary/10 font-mono text-2xl font-bold text-primary">
-            {p.numero_tse}
-          </div>
-        )}
+        <PartidoLogo partido={p} className="size-14 text-2xl" />
       </PageHeader>
 
       <KpiGrid

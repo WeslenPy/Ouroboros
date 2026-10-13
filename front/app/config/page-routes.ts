@@ -1,5 +1,7 @@
 import {
+  IconAffiliate,
   IconAlertTriangle,
+  IconBuildingBank,
   IconBuildingCommunity,
   IconCash,
   IconCloudDownload,
@@ -23,8 +25,10 @@ export interface NavEntry {
 
 export const NAV_MAIN: NavEntry[] = [
   { key: "overview", url: "/", icon: IconLayoutDashboard },
+  { key: "grafo", url: "/grafo", icon: IconAffiliate },
   { key: "politicos", url: "/politicos", icon: IconUsers },
   { key: "despesas", url: "/despesas", icon: IconCash },
+  { key: "emendas", url: "/emendas", icon: IconBuildingBank },
   { key: "candidaturas", url: "/candidaturas", icon: IconTicket },
   { key: "partidos", url: "/partidos", icon: IconFlag },
   { key: "entes", url: "/entes", icon: IconMapPin },

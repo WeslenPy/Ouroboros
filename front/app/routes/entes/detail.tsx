@@ -3,6 +3,7 @@ import { IconMapPin } from "@tabler/icons-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/ui/button"
+import { MapaButton } from "~/components/grafo/mapa-button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { useEsferaLabel } from "~/components/custom/labels"
 import { OrigemCard } from "~/components/custom/origem"
@@ -39,6 +40,7 @@ export default function EnteDetail() {
         actions={
           e.uf && (
             <>
+              {e.esfera === "municipal" && <MapaButton no={`municipio:${e.codigo_ibge}`} />}
               <Button asChild variant="outline" size="sm">
                 <Link to={`/politicos?uf=${e.uf}&em_exercicio=true`}>{t("ente.verPoliticos")}</Link>
               </Button>

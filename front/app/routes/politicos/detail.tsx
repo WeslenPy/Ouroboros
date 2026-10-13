@@ -22,6 +22,7 @@ import {
   ResumoCharts,
 } from "~/components/custom/despesas-panel"
 import { ExportButton, SelectFilter, yearOptions } from "~/components/custom/filters"
+import { MapaButton } from "~/components/grafo/mapa-button"
 import { KpiGrid } from "~/components/custom/kpi"
 import { useCargoLabel, useEsferaLabel } from "~/components/custom/labels"
 import { PoliticoAvatar } from "~/components/custom/politico-avatar"
@@ -85,6 +86,7 @@ export default function PoliticoDetail() {
         actions={
           m && (
             <div className="flex flex-wrap items-center gap-2">
+              <MapaButton no={`politico:${p.id}`} />
               {atual && (
                 <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
                   {t("politico.emExercicio")}
@@ -266,6 +268,9 @@ export default function PoliticoDetail() {
                         >
                           {c.situacao_turno ?? c.situacao_candidatura ?? "—"}
                         </Badge>
+                        {c.motivos_situacao.length > 0 && (
+                          <p className="mt-1 text-xs text-muted-foreground">{c.motivos_situacao.join(" · ")}</p>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

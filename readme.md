@@ -12,7 +12,7 @@ atuação legislativa, sanções e vínculos com fornecedores — tudo ligado a 
 
 - [x] 0. Fundação: infra, conector base, landing bruto, IBGE (entes), `/v1/entes`, `/v1/fontes`
 - [x] 1. Legislativo federal: Câmara + Senado (CEAP/CEAPS) + TSE candidatos, resolução de identidade, `/v1/politicos`, `/v1/despesas`
-- [ ] 2. Emendas: Portal da Transparência + Transferegov (Pix)
+- [~] 2. Emendas: Portal da Transparência (emendas + favorecidos, `/v1/emendas`, `/v1/grafo`) feito; falta Transferegov (Pix) e convênios
 - [ ] 3. Dinheiro e vínculos: contas de campanha, bens, CNPJ, sanções
 - [ ] 4. Atuação: proposições, votações, presença
 - [ ] 5. Estados: SICONFI, ALEs, TCEs, PNCP
