@@ -48,7 +48,7 @@ import type { Grafo, GrafoGrupo, GrafoNo, PoliticoResumo } from "~/interface/api
 import { formatBRL, initials, toNumber } from "~/lib/format"
 import { cn } from "~/lib/utils"
 
-const GRUPOS: GrafoGrupo[] = ["carreira", "gastos", "emendas", "conexoes"]
+const GRUPOS: GrafoGrupo[] = ["carreira", "gastos", "emendas", "obras", "conexoes"]
 
 // ---------------------------------------------------------------- busca de ponto de partida
 
@@ -148,8 +148,8 @@ function Inicio({ onPick }: { onPick: (no: string) => void }) {
         <p className="text-muted-foreground">{t("grafo.heroTexto")}</p>
       </div>
       <Picker onPick={onPick} autoFocus />
-      <div className="grid w-full gap-3 text-left sm:grid-cols-3">
-        {(["gastos", "emendas", "conexoes"] as const).map((g) => (
+      <div className="grid w-full gap-3 text-left sm:grid-cols-2 lg:grid-cols-4">
+        {(["gastos", "emendas", "obras", "conexoes"] as const).map((g) => (
           <Card key={g} className="gap-2 py-4 shadow-xs">
             <CardContent className="space-y-1 px-4">
               <p className="flex items-center gap-2 text-sm font-semibold">

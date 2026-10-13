@@ -35,9 +35,11 @@ async def gerar_alertas(particao: str = "atual", detectores: list[str] | None = 
                     len(alertas),
                     time.monotonic() - inicio,
                 )
-            await session.execute(
-                delete(Alerta).where(Alerta.detector.in_([d.codigo for d in escolhidos]))
-            )
+            apagar = delete(Alerta)
+            if detectores:
+                apagar = apagar.where(Alerta.detector.in_(detectores))
+            # rodada completa também limpa detectores que saíram do catálogo
+            await session.execute(apagar)
             linhas = list(novos.values())
             for i in range(0, len(linhas), LOTE):
                 await session.execute(insert(Alerta), linhas[i : i + LOTE])

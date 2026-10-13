@@ -113,7 +113,13 @@ export default function Emendas() {
         header: t("emenda.codigo"),
         cell: ({ row }) => (
           <div>
-            <p className="font-mono text-xs">{row.original.codigo}</p>
+            <Link
+              to={`/emendas/${row.original.codigo}`}
+              className="font-mono text-xs hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {row.original.codigo}
+            </Link>
             <p className="text-[11px] text-muted-foreground">{row.original.ano}</p>
           </div>
         ),

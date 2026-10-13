@@ -239,3 +239,136 @@ class TransferenciaEspecialPagamentoRow(Lineage):
     situacao: str | None
     data_emissao: date | None
     valor: Decimal
+
+
+class ConvenioRow(Lineage):
+    """Convênio do Transferegov com proposta e dados da obra (ver models.convenio)."""
+
+    numero: int
+    proposta_id: int
+    ano: int
+    situacao: str | None
+    subsituacao: str | None
+    modalidade: str | None
+    orgao_superior: str | None
+    orgao: str | None
+    proponente_cnpj: str | None
+    proponente_nome: str | None
+    natureza_juridica: str | None
+    uf: str | None
+    municipio_codigo_ibge: int | None
+    municipio_nome: str | None
+    objeto: str | None
+    data_proposta: date | None
+    data_assinatura: date | None
+    data_publicacao: date | None
+    inicio_vigencia: date | None
+    fim_vigencia: date | None
+    fim_vigencia_original: date | None
+    limite_prestacao_contas: date | None
+    prorrogacoes: int | None
+    aditivos: int | None
+    valor_global: Decimal
+    valor_repasse: Decimal
+    valor_contrapartida: Decimal
+    valor_empenhado: Decimal
+    valor_desembolsado: Decimal
+    valor_saldo_conta: Decimal | None
+    obra_id: str | None = None
+    obra_nome: str | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    endereco: str | None = None
+    cep: str | None = None
+    percentual_execucao: Decimal | None = None
+    valor_executado: Decimal | None = None
+    inicio_obra: date | None = None
+    ultima_medicao: date | None = None
+    dias_sem_medicao: int | None = None
+
+
+class ConvenioEmendaRow(Lineage):
+    convenio_numero: int
+    ano: int
+    emenda_codigo: str | None
+    emenda_numero: str | None
+    tipo: str | None
+    parlamentar_nome: str
+    parlamentar_nome_normalizado: str
+    impositiva: bool | None
+    valor_repasse: Decimal
+
+
+class ConvenioMetaRow(Lineage):
+    id: int
+    convenio_numero: int
+    ano: int
+    numero: int | None
+    descricao: str | None
+    data_inicio: date | None
+    data_fim: date | None
+    uf: str | None
+    municipio_nome: str | None
+    endereco: str | None
+    cep: str | None
+    quantidade: Decimal | None
+    unidade: str | None
+    valor: Decimal
+
+
+class ConvenioDesembolsoRow(Lineage):
+    id: int
+    convenio_numero: int
+    ano: int
+    data: date | None
+    documento: str | None
+    valor: Decimal
+
+
+class ConvenioContratoRow(Lineage):
+    id: int
+    convenio_numero: int
+    ano: int
+    numero: str | None
+    modalidade_licitacao: str | None
+    objeto: str | None
+    tipo_aquisicao: str | None
+    fornecedor_documento: str | None
+    fornecedor_nome: str | None
+    data_assinatura: date | None
+    inicio_vigencia: date | None
+    fim_vigencia: date | None
+    valor: Decimal
+
+
+class ConvenioFornecedorRow(Lineage):
+    """Pagamentos de um convênio somados por fornecedor (PF somada numa linha, documento nulo)."""
+
+    convenio_numero: int
+    documento: str | None
+    nome: str
+    pagamentos: int
+    primeiro_pagamento: date | None
+    ultimo_pagamento: date | None
+    valor: Decimal
+
+
+class GastoPresidenciaRow(Lineage):
+    """Lançamento do cartão de pagamento (CPGF) da Presidência da República.
+
+    Sem político: o presidente da vez é achado pela data contra os mandatos de presidente.
+    """
+
+    data: date | None
+    ano: int
+    mes: int
+    unidade_gestora: str | None
+    portador: str | None
+    favorecido_documento: str | None
+    favorecido_nome: str | None
+    valor: Decimal
+    tipo: str  # credito, saque
+    categoria: str | None
+    transacao: str | None
+    sigiloso: bool
+    classificacao: str | None

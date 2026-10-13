@@ -1,3 +1,4 @@
+import os
 import time
 
 import httpx
@@ -56,3 +57,12 @@ def test_raw_store_idempotente(tmp_path):
     p2 = store.save(record)
     assert p1 == p2 == tmp_path / "f" / "r" / "2024" / f"{record.sha256}.json"
     assert p1.read_bytes() == b"[1]"
+
+
+def test_raw_store_mesmo_arquivo_em_outra_particao_vira_hardlink(tmp_path):
+    store = RawStore(tmp_path)
+    a = store.save(RawRecord("f", "r", "2023", "u", b"zip"))
+    b = store.save(RawRecord("f", "r", "2024", "u", b"zip"))
+    assert a != b
+    assert b.read_bytes() == b"zip"
+    assert os.path.samefile(a, b)

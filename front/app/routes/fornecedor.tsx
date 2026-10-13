@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useParams } from "react-router"
+import { Link, useParams } from "react-router"
 import { IconBuildingStore, IconCash, IconReceipt } from "@tabler/icons-react"
 import { useTranslation } from "react-i18next"
 
@@ -7,10 +7,12 @@ import { DespesasTable, ResumoCharts } from "~/components/custom/despesas-panel"
 import { ExportButton, SelectFilter, yearOptions } from "~/components/custom/filters"
 import { MapaButton } from "~/components/grafo/mapa-button"
 import { KpiGrid } from "~/components/custom/kpi"
+import { ObrasTable } from "~/components/custom/obras"
 import { PageHeader } from "~/components/custom/states"
 import { useApi } from "~/context/api"
 import { usePageTitle } from "~/context/page"
 import { useResource } from "~/hooks/use-resource"
+import type { Params } from "~/interface/api"
 import { formatBRL, formatDocumento, formatInt } from "~/lib/format"
 
 export default function Fornecedor() {
@@ -56,6 +58,34 @@ export default function Fornecedor() {
         deps={[documento, ano]}
         fetcher={(cursor) => api.despesas({ ...filtro, cursor, limit: 50 })}
       />
+      {/^\d{14}$/.test(documento) && (
+        <>
+          <ObrasSecao titulo={t("fornecedor.obrasContratada")} params={{ fornecedor: documento, ano: filtro.ano }} deps={[documento, ano]} />
+          <ObrasSecao titulo={t("fornecedor.obrasConvenente")} params={{ proponente: documento, ano: filtro.ano }} deps={[documento, ano]} />
+        </>
+      )}
     </>
+  )
+}
+
+function ObrasSecao({ titulo, params, deps }: { titulo: string; params: Params; deps: unknown[] }) {
+  const { t } = useTranslation()
+  const api = useApi()
+  // só mostra a seção se houver ao menos um convênio
+  const existe = useResource(() => api.obras({ ...params, limit: 1 }), deps)
+  if (!existe.data?.items.length) return null
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null) as [string, string][],
+  )
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">{titulo}</h2>
+        <Link to={`/obras?${qs}`} className="text-xs text-primary hover:underline">
+          {t("common.verTudo")}
+        </Link>
+      </div>
+      <ObrasTable params={params} deps={deps} />
+    </div>
   )
 }

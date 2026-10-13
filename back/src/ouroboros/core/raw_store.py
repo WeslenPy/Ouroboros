@@ -1,4 +1,5 @@
 import hashlib
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,7 +31,8 @@ _EXT = {"application/json": "json", "text/csv": "csv", "application/zip": "zip"}
 class RawStore:
     """Landing de arquivos brutos em disco: <raw_dir>/<fonte>/<recurso>/<particao>/<sha256>.<ext>.
 
-    Mesmo conteúdo = mesmo arquivo (idempotente). Trocar por S3/MinIO quando o volume pedir.
+    Mesmo conteúdo = mesmo arquivo (idempotente), e o mesmo conteúdo em partições diferentes vira
+    hardlink. Trocar por S3/MinIO quando o volume pedir.
     """
 
     def __init__(self, root: Path | None = None) -> None:
@@ -47,6 +49,14 @@ class RawStore:
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_suffix(path.suffix + ".tmp")
-            tmp.write_bytes(record.payload)
+            # mesmo arquivo em outra partição (ZIP único da fonte, filtrado por ano): hardlink
+            # em vez de outra cópia; sem suporte a link, grava de novo
+            irmao = next(path.parent.parent.glob(f"*/{path.name}"), None)
+            try:
+                if irmao is None:
+                    raise OSError
+                os.link(irmao, tmp)
+            except OSError:
+                tmp.write_bytes(record.payload)
             tmp.replace(path)
         return path

@@ -37,7 +37,8 @@ from ouroboros.core.raw_store import RawRecord
 from ouroboros.core.text import normalize
 
 API_URL = "https://api.transferegov.gestao.gov.br/transferenciasespeciais"
-PAGINA = 10000
+# a API corta em 1000 linhas por requisição, qualquer que seja o `limit`
+PAGINA = 1000
 
 # tabela -> chave de ordenação (paginação estável)
 TABELAS = {
@@ -87,7 +88,7 @@ class TransferegovEspeciaisConnector(HttpConnector):
     fonte = "transferegov"
     recurso = "especiais"
     base_url = API_URL
-    max_calls_per_minute = 60
+    max_calls_per_minute = 120
     headers = {"Accept": "application/json"}
 
     async def extract(self, particao: str) -> AsyncIterator[RawRecord]:
@@ -99,9 +100,10 @@ class TransferegovEspeciaisConnector(HttpConnector):
                         f"/{tabela}", params={"order": ordem, "limit": PAGINA, "offset": offset}
                     )
                     yield self.raw(tabela, particao, r, "application/json")
-                    if len(r.json()) < PAGINA:
+                    recebidas = len(r.json())
+                    if recebidas < PAGINA:
                         break
-                    offset += PAGINA
+                    offset += recebidas
 
     def transform(self, records: Sequence[RawRecord]) -> Sequence[BaseModel]:
         def lineage(record: RawRecord) -> dict:
@@ -203,4 +205,6 @@ class TransferegovEspeciaisConnector(HttpConnector):
                     **lineage(record),
                 )
             )
-        return rows
+        # a API repete linhas (mesmo id em páginas diferentes): fica a última de cada tabela
+        unicos = {(type(r), r.id): r for r in rows}  # type: ignore[attr-defined]
+        return list(unicos.values())

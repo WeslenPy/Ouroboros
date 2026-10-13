@@ -1,13 +1,16 @@
 import {
   IconBriefcase,
   IconBuildingBank,
+  IconBuildingBridge,
   IconBuildingCommunity,
   IconBuildingStore,
   IconCategory,
   IconCheckbox,
   IconFlag,
+  IconHammer,
   IconId,
   IconMapPin,
+  IconMapPinFilled,
   IconReceipt,
   IconTag,
   IconUser,
@@ -53,6 +56,12 @@ export const GRUPO: Record<GrafoGrupo, GrupoStyle> = {
     border: "border-emerald-500/40",
     dot: "bg-emerald-500",
   },
+  obras: {
+    stroke: "#f43f5e",
+    chip: "bg-rose-500/15 text-rose-600 dark:text-rose-300",
+    border: "border-rose-500/40",
+    dot: "bg-rose-500",
+  },
   conexoes: {
     stroke: "#0ea5e9",
     chip: "bg-sky-500/15 text-sky-600 dark:text-sky-300",
@@ -72,6 +81,7 @@ const POR_TIPO: Record<string, Icon> = {
   municipio: IconMapPin,
   favorecido: IconBuildingCommunity,
   autor: IconUsersGroup,
+  obra: IconBuildingBridge,
 }
 
 const POR_HUB: Record<string, Icon> = {
@@ -80,6 +90,10 @@ const POR_HUB: Record<string, Icon> = {
   "hub:emendas": IconBuildingBank,
   "hub:autores": IconUsersGroup,
   "hub:areas": IconCategory,
+  "hub:obras": IconBuildingBridge,
+  "hub:convenios": IconBuildingBridge,
+  "hub:execucao": IconHammer,
+  "hub:local": IconMapPinFilled,
 }
 
 export function iconFor(no: GrafoNo): Icon {
@@ -93,6 +107,7 @@ export function exploravel(no: GrafoNo): string | null {
   if (no.tipo === "politico") return `politico:${no.chave}`
   if (no.tipo === "fornecedor" || no.tipo === "favorecido") return `doc:${no.chave}`
   if (no.tipo === "municipio") return `municipio:${no.chave}`
+  if (no.tipo === "obra") return `obra:${no.chave}`
   return null
 }
 
@@ -108,7 +123,9 @@ export function paginaDe(no: GrafoNo): string | null {
     case "favorecido":
       return `/fornecedores/${encodeURIComponent(no.chave)}`
     case "municipio":
-      return `/emendas?municipio=${no.chave}`
+      return `/entes/${no.chave}`
+    case "obra":
+      return `/obras/${no.chave}`
     default:
       return null
   }

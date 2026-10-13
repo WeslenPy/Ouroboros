@@ -3,7 +3,7 @@
 import csv
 import io
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -62,3 +62,33 @@ def parse_int(value: str | None) -> int | None:
         return int(value) if value else None
     except ValueError:
         return None
+
+
+def zip_csv_columns(
+    data: bytes,
+    columns: Sequence[str],
+    *,
+    member: str | None = None,
+    encoding: str = "utf-8-sig",
+    delimiter: str = ";",
+) -> Iterator[tuple[str, ...]]:
+    """Lê só as colunas pedidas de um CSV dentro de ZIP, sem descompactar tudo na memória.
+
+    Para arquivos de centenas de MB (Transferegov): `csv.reader` + índice é bem mais rápido que
+    `DictReader`. Coluna ausente no cabeçalho vira "" em todas as linhas. `member` = trecho do
+    nome do arquivo no ZIP (padrão: o primeiro CSV).
+    """
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        nomes = [n for n in zf.namelist() if n.lower().endswith(".csv")]
+        nome = next((n for n in nomes if member is None or member in n), None)
+        if nome is None:
+            return
+        with zf.open(nome) as raw:
+            text = io.TextIOWrapper(raw, encoding=encoding, newline="")
+            reader = csv.reader(text, delimiter=delimiter)
+            header = [h.strip() for h in next(reader, [])]
+            pos = {h: i for i, h in enumerate(header)}
+            idx = [pos.get(c, -1) for c in columns]
+            for row in reader:
+                n = len(row)
+                yield tuple(row[i] if 0 <= i < n else "" for i in idx)

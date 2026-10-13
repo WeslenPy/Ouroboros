@@ -19,9 +19,15 @@ GRUPO = {
     "camara_ceap": "despesas",
     "senado_ceaps": "despesas",
     "transparencia_emendas": "emendas",
+    "transferegov_especiais": "emendas",
+    "transferegov_convenios": "obras",
+    "transferegov_pagamentos": "obras",
     "fotos_parlamentares": "fotos",
     "tse_fotos": "fotos",
     "partidos_logos": "fotos",
+    "presidentes": "presidencia",
+    "presidencia_cartao_historico": "presidencia",
+    "presidencia_cpgf": "presidencia",
     "analises": "analises",
 }
 

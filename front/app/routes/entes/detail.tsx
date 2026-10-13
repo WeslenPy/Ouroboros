@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { useEsferaLabel } from "~/components/custom/labels"
 import { OrigemCard } from "~/components/custom/origem"
 import { BlockSkeleton, ErrorState, PageHeader } from "~/components/custom/states"
+import { ObrasTable } from "~/components/custom/obras"
 import { useApi } from "~/context/api"
 import { usePageTitle } from "~/context/page"
 import { useResource } from "~/hooks/use-resource"
@@ -73,6 +74,17 @@ export default function EnteDetail() {
         </Card>
         <OrigemCard origem={e.origem} />
       </div>
+      {e.esfera === "municipal" && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{t("ente.obras")}</h2>
+            <Link to={`/obras?municipio=${e.codigo_ibge}`} className="text-xs text-primary hover:underline">
+              {t("common.verTudo")}
+            </Link>
+          </div>
+          <ObrasTable params={{ municipio: e.codigo_ibge }} deps={[e.codigo_ibge]} />
+        </div>
+      )}
     </>
   )
 }

@@ -12,17 +12,46 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouroboros.canonical import (
     CandidaturaRow,
+    ConvenioContratoRow,
+    ConvenioDesembolsoRow,
+    ConvenioEmendaRow,
+    ConvenioFornecedorRow,
+    ConvenioMetaRow,
+    ConvenioRow,
     CpfPessoaRow,
     DespesaRow,
+    EmendaConvenioRow,
     EmendaFavorecidoRow,
     EmendaRow,
     EnteRow,
     MandatoRow,
     PartidoRow,
     PessoaRow,
+    TransferenciaEspecialEmpenhoRow,
+    TransferenciaEspecialExecutorRow,
+    TransferenciaEspecialMetaRow,
+    TransferenciaEspecialPagamentoRow,
+    TransferenciaEspecialRow,
+)
+from ouroboros.models.convenio import (
+    Convenio,
+    ConvenioContrato,
+    ConvenioDesembolso,
+    ConvenioEmenda,
+    ConvenioFornecedor,
+    ConvenioMeta,
 )
 from ouroboros.models.despesa import DespesaGabinete
-from ouroboros.models.emenda import Emenda, EmendaFavorecido
+from ouroboros.models.emenda import (
+    Emenda,
+    EmendaConvenio,
+    EmendaFavorecido,
+    TransferenciaEspecial,
+    TransferenciaEspecialEmpenho,
+    TransferenciaEspecialExecutor,
+    TransferenciaEspecialMeta,
+    TransferenciaEspecialPagamento,
+)
 from ouroboros.models.ente import Ente
 from ouroboros.models.mandato import Candidatura, Mandato
 from ouroboros.models.partido import Partido
@@ -262,24 +291,95 @@ async def _copy(session: AsyncSession, table: str, columns: list[str], rows: Seq
     )
 
 
+async def _copy_rows(session: AsyncSession, model: type, kind: type[T], rows: Sequence) -> None:
+    if rows:
+        await _copy(session, model.__tablename__, list(kind.model_fields), rows)
+
+
 async def load_emendas(session: AsyncSession, rows: Sequence[BaseModel], particao: str) -> int:
-    """Substitui o ano inteiro de emendas e de pagamentos a favorecidos (sem chave por linha)."""
+    """Substitui o ano inteiro de emendas, pagamentos a favorecidos e convênios (sem chave por
+    linha)."""
     ano = int(particao)
     emendas = _of(rows, EmendaRow)
     favorecidos = _of(rows, EmendaFavorecidoRow)
-    for model in (Emenda, EmendaFavorecido):
+    convenios = _of(rows, EmendaConvenioRow)
+    for model in (Emenda, EmendaFavorecido, EmendaConvenio):
         await session.execute(delete(model).where(model.ano == ano))
-    if emendas:
-        await _copy(session, Emenda.__tablename__, list(EmendaRow.model_fields), emendas)
-    if favorecidos:
-        await _copy(
-            session,
-            EmendaFavorecido.__tablename__,
-            list(EmendaFavorecidoRow.model_fields),
-            favorecidos,
-        )
+    await _copy_rows(session, Emenda, EmendaRow, emendas)
+    await _copy_rows(session, EmendaFavorecido, EmendaFavorecidoRow, favorecidos)
+    await _copy_rows(session, EmendaConvenio, EmendaConvenioRow, convenios)
     await relink_emendas(session, ano)
-    return len(emendas) + len(favorecidos)
+    return len(emendas) + len(favorecidos) + len(convenios)
+
+
+_TRANSFERENCIAS = [
+    (TransferenciaEspecial, TransferenciaEspecialRow),
+    (TransferenciaEspecialExecutor, TransferenciaEspecialExecutorRow),
+    (TransferenciaEspecialMeta, TransferenciaEspecialMetaRow),
+    (TransferenciaEspecialEmpenho, TransferenciaEspecialEmpenhoRow),
+    (TransferenciaEspecialPagamento, TransferenciaEspecialPagamentoRow),
+]
+
+
+async def load_transferencias_especiais(
+    session: AsyncSession, rows: Sequence[BaseModel], particao: str
+) -> int:
+    """Emendas Pix: partição única, substitui tudo e liga beneficiário ao município (ente)."""
+    total = 0
+    for model, kind in _TRANSFERENCIAS:
+        await session.execute(delete(model))
+        linhas = _of(rows, kind)
+        await _copy_rows(session, model, kind, linhas)
+        total += len(linhas)
+    await session.execute(
+        text(
+            """
+            UPDATE transferencia_especial t SET municipio_codigo_ibge = e.codigo_ibge
+            FROM ente e
+            WHERE t.municipio_codigo_ibge IS NULL
+              AND e.esfera = 'municipal'
+              AND e.uf = t.uf
+              AND e.nome_normalizado = regexp_replace(
+                    lower(unaccent(t.beneficiario_nome)),
+                    '^(prefeitura municipal de|municipio de|prefeitura de) ', ''
+                  )
+            """
+        )
+    )
+    await relink_emendas(session)
+    return total
+
+
+_CONVENIOS = [
+    (Convenio, ConvenioRow),
+    (ConvenioEmenda, ConvenioEmendaRow),
+    (ConvenioMeta, ConvenioMetaRow),
+    (ConvenioDesembolso, ConvenioDesembolsoRow),
+    (ConvenioContrato, ConvenioContratoRow),
+]
+
+
+async def load_convenios(session: AsyncSession, rows: Sequence[BaseModel], particao: str) -> int:
+    """Substitui o ano (da proposta) de convênios e tudo que pende deles."""
+    ano = int(particao)
+    total = 0
+    for model, kind in _CONVENIOS:
+        await session.execute(delete(model).where(model.ano == ano))
+        linhas = _of(rows, kind)
+        await _copy_rows(session, model, kind, linhas)
+        total += len(linhas)
+    await relink_emendas(session, ano)
+    return total
+
+
+async def load_convenio_pagamentos(
+    session: AsyncSession, rows: Sequence[BaseModel], particao: str
+) -> int:
+    """Pagamentos somados por convênio x fornecedor: partição única, substitui tudo."""
+    linhas = _of(rows, ConvenioFornecedorRow)
+    await session.execute(delete(ConvenioFornecedor))
+    await _copy_rows(session, ConvenioFornecedor, ConvenioFornecedorRow, linhas)
+    return len(linhas)
 
 
 # Nome parlamentar (Câmara/Senado) que aponta para um único político.
@@ -303,18 +403,47 @@ async def relink_emendas(session: AsyncSession, ano: int | None = None) -> None:
     """Liga autor da emenda (só nome + código CGU) ao político pelo nome parlamentar.
 
     Emendas de bancada, comissão e relator não casam (autor coletivo) e ficam sem político.
+    Convênios e transferências especiais herdam o político da emenda pelo código (mais seguro
+    que o nome); sem emenda carregada, caem no nome também.
     """
     filtro_ano = "AND e.ano = :ano" if ano is not None else ""
-    for tabela in (Emenda.__tablename__, EmendaFavorecido.__tablename__):
+    params = {"ano": ano} if ano is not None else {}
+
+    async def por_nome(tabela: str, coluna: str) -> None:
         await session.execute(
             text(
                 f"""
                 UPDATE {tabela} e SET politico_id = m.politico_id
                 FROM ({_NOMES_PARLAMENTARES}) m
                 WHERE e.politico_id IS NULL
-                  AND e.autor_nome_normalizado = m.nome
+                  AND e.{coluna} = m.nome
                   {filtro_ano}
                 """
             ),
-            {"ano": ano} if ano is not None else {},
+            params,
         )
+
+    await por_nome(Emenda.__tablename__, "autor_nome_normalizado")
+    await por_nome(EmendaFavorecido.__tablename__, "autor_nome_normalizado")
+    for tabela in (
+        EmendaConvenio.__tablename__,
+        ConvenioEmenda.__tablename__,
+        TransferenciaEspecial.__tablename__,
+    ):
+        await session.execute(
+            text(
+                f"""
+                UPDATE {tabela} e SET politico_id = m.politico_id
+                FROM (
+                    SELECT codigo, min(politico_id) AS politico_id FROM emenda
+                    WHERE politico_id IS NOT NULL
+                    GROUP BY codigo HAVING count(DISTINCT politico_id) = 1
+                ) m
+                WHERE e.politico_id IS NULL AND e.emenda_codigo = m.codigo
+                  {filtro_ano}
+                """
+            ),
+            params,
+        )
+    await por_nome(ConvenioEmenda.__tablename__, "parlamentar_nome_normalizado")
+    await por_nome(TransferenciaEspecial.__tablename__, "parlamentar_nome_normalizado")

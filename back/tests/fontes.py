@@ -10,6 +10,10 @@ from ouroboros.connectors.base import Connector
 from ouroboros.connectors.camara import CamaraCeapConnector, CamaraDeputadosConnector
 from ouroboros.connectors.ibge import IbgeConnector
 from ouroboros.connectors.senado import SenadoCeapsConnector, SenadoSenadoresConnector
+from ouroboros.connectors.transferegov import (
+    TransferegovConveniosConnector,
+    TransferegovPagamentosConnector,
+)
 from ouroboros.connectors.transparencia import TransparenciaEmendasConnector
 from ouroboros.connectors.tse import TseCandidatosConnector
 from ouroboros.core.raw_store import RawRecord
@@ -98,3 +102,34 @@ def transparencia_emendas() -> Connector:
         for nome in ("EmendasParlamentares.csv", "EmendasParlamentares_PorFavorecido.csv"):
             zf.write(FIXTURES / "transparencia" / nome, nome)
     return com_fixtures(TransparenciaEmendasConnector, [("emendas_zip", buf.getvalue())])
+
+
+# recurso -> arquivo em fixtures/transferegov (recortes sintéticos com os cabeçalhos reais)
+TRANSFEREGOV = {
+    "convenio": "siconv_convenio.csv",
+    "proposta": "siconv_proposta.csv",
+    "emenda": "siconv_emenda.csv",
+    "meta": "siconv_meta_crono_fisico.csv",
+    "desembolso": "siconv_desembolso.csv",
+    "licitacao": "siconv_licitacao.csv",
+    "contrato": "siconv_contrato.csv",
+    "coordenadas": "siconv_coordenadas_obra.csv",
+    "resumo": "siconv_resumo_fisico_financeiro.csv",
+    "medicoes": "siconv_acomp_obras_contratos_medicoes_modulo_empresas.csv",
+    "obrasgov": "siconv_dados_obrasgov_geral.csv",
+}
+
+
+def transferegov_convenios() -> Connector:
+    pasta = FIXTURES / "transferegov"
+    return com_fixtures(
+        TransferegovConveniosConnector,
+        [(recurso, zipped(pasta / nome)) for recurso, nome in TRANSFEREGOV.items()],
+    )
+
+
+def transferegov_pagamentos() -> Connector:
+    return com_fixtures(
+        TransferegovPagamentosConnector,
+        [("pagamento", zipped(FIXTURES / "transferegov" / "siconv_pagamento.csv"))],
+    )

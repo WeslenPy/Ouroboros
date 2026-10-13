@@ -1,8 +1,11 @@
 import { useState } from "react"
 import { Link, useParams } from "react-router"
 import {
+  IconBuildingBridge,
   IconCake,
   IconCash,
+  IconCreditCard,
+  IconFlame,
   IconId,
   IconPhoto,
   IconTicket,
@@ -16,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs"
 import { SimpleBarChart } from "~/components/charts/bar-chart"
 import { ChartCard } from "~/components/charts/chart-card"
+import { AlertasList, RiscoBar } from "~/components/custom/alertas"
 import {
   DespesasTable,
   FornecedoresList,
@@ -23,9 +27,11 @@ import {
 } from "~/components/custom/despesas-panel"
 import { ExportButton, SelectFilter, yearOptions } from "~/components/custom/filters"
 import { MapaButton } from "~/components/grafo/mapa-button"
+import { ObrasTable } from "~/components/custom/obras"
 import { KpiGrid } from "~/components/custom/kpi"
 import { useCargoLabel, useEsferaLabel } from "~/components/custom/labels"
 import { PoliticoAvatar } from "~/components/custom/politico-avatar"
+import { PresidenciaPanel } from "~/components/custom/presidencia-panel"
 import { BlockSkeleton, EmptyState, ErrorState, PageHeader } from "~/components/custom/states"
 import { useApi } from "~/context/api"
 import { usePageTitle } from "~/context/page"
@@ -60,6 +66,9 @@ export default function PoliticoDetail() {
     enabled: tab === "candidaturas",
   })
   const fotos = useResource(() => api.politicoFotos(id), [id], { enabled: tab === "fotos" })
+  // risco sempre: aparece no rótulo da aba
+  const risco = useResource(() => api.alertasRanking({ politico: id }), [id])
+  const meuRisco = risco.data?.items[0]
 
   if (politico.error) return <ErrorState error={politico.error} onRetry={politico.reload} />
   if (!p) return <BlockSkeleton height={400} />
@@ -67,6 +76,7 @@ export default function PoliticoDetail() {
   const totalGasto = p.gastos_gabinete_por_ano.reduce((acc, a) => acc + toNumber(a.total), 0)
   const atual = p.mandatos.find(emCurso)
   const m = p.ultimo_mandato
+  const foiPresidente = p.mandatos.some((x) => x.cargo === "presidente")
 
   return (
     <>
@@ -142,6 +152,9 @@ export default function PoliticoDetail() {
           <TabsTrigger value="despesas">
             <IconCash /> {t("politico.tabs.despesas")}
           </TabsTrigger>
+          <TabsTrigger value="obras">
+            <IconBuildingBridge /> {t("politico.tabs.obras")}
+          </TabsTrigger>
           <TabsTrigger value="mandatos">
             <IconTimeline /> {t("politico.tabs.mandatos")} ({p.mandatos.length})
           </TabsTrigger>
@@ -153,6 +166,19 @@ export default function PoliticoDetail() {
           </TabsTrigger>
           <TabsTrigger value="ids">
             <IconId /> {t("politico.tabs.ids")}
+          </TabsTrigger>
+          {foiPresidente && (
+            <TabsTrigger value="presidencia">
+              <IconCreditCard /> {t("politico.tabs.presidencia")}
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="alertas">
+            <IconFlame /> {t("politico.tabs.alertas")}
+            {meuRisco && (
+              <Badge variant="secondary" className="ml-1 px-1.5 tabular-nums">
+                {meuRisco.alertas}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -179,6 +205,16 @@ export default function PoliticoDetail() {
               api.politicoDespesas(id, { ano: ano || undefined, cursor, limit: 50 })
             }
           />
+        </TabsContent>
+
+        <TabsContent value="obras" className="mt-4 flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">{t("politico.obrasDesc")}</p>
+            <Link to={`/obras?politico=${id}`} className="text-xs text-primary hover:underline">
+              {t("common.verTudo")}
+            </Link>
+          </div>
+          {tab === "obras" && <ObrasTable params={{ politico: id }} deps={[id]} />}
         </TabsContent>
 
         <TabsContent value="mandatos" className="mt-4">
@@ -334,6 +370,36 @@ export default function PoliticoDetail() {
               </TableBody>
             </Table>
           </div>
+        </TabsContent>
+
+        {foiPresidente && (
+          <TabsContent value="presidencia" className="mt-4">
+            {tab === "presidencia" && <PresidenciaPanel params={{ politico: p.id }} mostrarPresidente={false} />}
+          </TabsContent>
+        )}
+
+        <TabsContent value="alertas" className="mt-4 flex flex-col gap-4">
+          {meuRisco ? (
+            <>
+              <Card className="gap-2 py-4">
+                <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4">
+                  <span className="text-sm text-muted-foreground">{t("alerta.riscoPolitico")}</span>
+                  <RiscoBar risco={meuRisco.risco} />
+                  <span className="text-sm">
+                    {meuRisco.alertas} {t("alerta.alertas").toLowerCase()} ·{" "}
+                    {formatBRL(meuRisco.valor, true)}
+                  </span>
+                  <Link to="/alertas" className="ml-auto text-xs text-primary hover:underline">
+                    {t("alerta.abas.metodologia")}
+                  </Link>
+                </CardContent>
+              </Card>
+              <p className="text-xs text-muted-foreground">{t("alerta.aviso")}</p>
+              <AlertasList params={{ politico: id }} mostrarPolitico={false} />
+            </>
+          ) : (
+            !risco.loading && <EmptyState title={t("alerta.semAlertas")} />
+          )}
         </TabsContent>
       </Tabs>
     </>

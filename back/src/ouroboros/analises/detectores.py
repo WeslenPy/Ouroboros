@@ -52,7 +52,12 @@ SOB_ENCOMENDA = (
     r"|fretamento)"
 )
 # Aluguel: o locador emite recibo só para o inquilino, sequencial e exclusivo por natureza.
-IMOVEL = r"(imobili|administra[çc][ãa]o de (bens|im[óo])|condom|alugu|loca[çc][ãa]o de im)"
+IMOVEL = (
+    r"(imobili|administra[çc][ãa]o de (bens|im[óo])|condom|alugu|loca[çc][ãa]o de im|holding"
+    r"|participa[çc][õo]es)"
+)
+# Categoria onde cai o aluguel do escritório (a Câmara não separa aluguel de manutenção).
+ESCRITORIO = r"(manuten[çc][ãa]o de escrit|alugu)"
 # Entidades públicas (prefeitura, fundo, autarquia) e grandes sociedades anônimas.
 PUBLICA = (
     r"(munic|estad|federal|p[úu]blic|autarquia|fundo|[óo]rg[ãa]o|economia mista|an[ôo]nima"
@@ -67,6 +72,9 @@ PRIVADA = (
 )
 FIRMA_INDIVIDUAL = r"(empres[áa]rio|eireli|individual de responsabilidade)"
 CNPJ = r"^[0-9]{14}$"
+# Prestação de contas aprovada/concluída = o governo aceitou a obra; anulado/cancelado = o dinheiro
+# não saiu. Nos dois casos "parada" não é indício.
+ENCERRADA = r"(aprovada|conclu[ií]da|anulado|cancelado)"
 
 PARAMS = {
     "impessoal": IMPESSOAL,
@@ -77,6 +85,7 @@ PARAMS = {
     "privada": PRIVADA,
     "sfl": SEM_FINS_LUCRATIVOS,
     "cnpj": CNPJ,
+    "encerrada": ENCERRADA,
 }
 
 
@@ -84,7 +93,7 @@ PARAMS = {
 class Detector:
     codigo: str
     titulo: str
-    area: str  # gabinete, emendas, eleicoes
+    area: str  # gabinete, emendas, obras, eleicoes
     peso: float
     metodologia: str
     executar: Callable[[AsyncSession], Awaitable[list[dict]]]
@@ -195,9 +204,10 @@ async def nota_duplicada(session: AsyncSession) -> list[dict]:
         for linha in linhas:
             por_politico[linha["politico_id"]].append(linha)
         varios = r["politicos"] > 1
+        # duplicata de R$ 200 pode ser erro de digitação da casa; de R$ 20 mil, não
         s = score(
-            62,
-            (20, escala_log(float(excedente), 200, 20_000)),
+            40,
+            (40, escala_log(float(excedente), 200, 20_000)),
             (8, escala(r["copias"], 2, 4)),
             (8, 1.0 if varios else 0.0),
         )
@@ -639,6 +649,7 @@ async def fornecedor_favorecido(session: AsyncSession) -> list[dict]:
         with g as (
             select politico_id, fornecedor_documento as doc, sum(valor_liquido) as gabinete,
                    max(fornecedor_nome) as nome_gabinete, count(*) as notas,
+                   mode() within group (order by categoria) as categoria,
                    min(ano) as a0, max(ano) as a1
             from despesa_gabinete
             where politico_id is not null and fornecedor_documento ~ :cnpj
@@ -657,7 +668,8 @@ async def fornecedor_favorecido(session: AsyncSession) -> list[dict]:
             group by politico_id, favorecido_documento
             having sum(valor) >= 10000
         )
-        select g.politico_id, g.doc, g.gabinete, g.nome_gabinete, g.notas, e.emendas, e.nome,
+        select g.politico_id, g.doc, g.gabinete, g.nome_gabinete, g.notas, g.categoria,
+               e.emendas, e.nome,
                e.natureza, e.qtd_emendas, e.codigos,
                least(g.a0, e.a0) as ano_inicio, greatest(g.a1, e.a1) as ano_fim
         from g join e using (politico_id, doc)
@@ -669,9 +681,12 @@ async def fornecedor_favorecido(session: AsyncSession) -> list[dict]:
         if not cnpj_valido(r["doc"]):
             continue
         sfl = _casa(SEM_FINS_LUCRATIVOS, r["natureza"])
+        # pagamento em manutenção de escritório costuma ser aluguel: entidade pode ser só locadora
+        aluguel = _casa(ESCRITORIO, r["categoria"])
         s = score(
             50,
             (15, 1.0 if sfl else 0.0),
+            (-15, 1.0 if aluguel else 0.0),
             (20, escala_log(float(r["emendas"]), 10_000, 2_000_000)),
             (15, escala_log(float(r["gabinete"]), 5_000, 300_000)),
         )
@@ -688,6 +703,12 @@ async def fornecedor_favorecido(session: AsyncSession) -> list[dict]:
                     f"{_brl(r['emendas'])} a ela ({r['qtd_emendas']} emenda(s)). Natureza: "
                     f"{r['natureza'] or 'não informada'}. Dinheiro público chegando à mesma "
                     f"entidade por dois caminhos controlados pela mesma pessoa."
+                    + (
+                        " Os pagamentos do gabinete são de manutenção de escritório: confira se "
+                        "a entidade é só a locadora do imóvel."
+                        if aluguel
+                        else ""
+                    )
                 ),
                 evidencias={
                     "metricas": {
@@ -697,6 +718,7 @@ async def fornecedor_favorecido(session: AsyncSession) -> list[dict]:
                         "emendas": r["qtd_emendas"],
                         "natureza_juridica": r["natureza"],
                         "nome_na_cota": r["nome_gabinete"],
+                        "categoria_gabinete": r["categoria"],
                     },
                     "emendas": (r["codigos"] or [])[:20],
                 },
@@ -871,6 +893,175 @@ async def emenda_fora_da_base(session: AsyncSession) -> list[dict]:
     return out
 
 
+# ----------------------------------------------------------------------------- obras
+
+
+async def obra_parada(session: AsyncSession) -> list[dict]:
+    """Obras pagas com emendas do parlamentar, com dinheiro liberado e paradas há muito tempo."""
+    rows = await _rows(
+        session,
+        r"""
+        with obras as (
+            select ce.politico_id, c.numero, c.ano, c.uf, c.municipio_nome,
+                   coalesce(c.obra_nome, c.objeto) as obra, c.situacao,
+                   c.percentual_execucao as pct, c.valor_desembolsado as liberado,
+                   c.ultima_medicao, c.fim_vigencia,
+                   greatest(coalesce(c.dias_sem_medicao, 0),
+                            coalesce(current_date - c.fim_vigencia, 0)) as dias,
+                   sum(ce.valor_repasse) as da_emenda
+            from convenio c
+            join convenio_emenda ce on ce.convenio_numero = c.numero
+            where ce.politico_id is not null
+              and (c.percentual_execucao is not null or c.ultima_medicao is not null
+                   or c.obra_id is not null)
+              and coalesce(c.percentual_execucao, 0) < 100
+              and c.valor_desembolsado >= 100000
+              and coalesce(c.situacao, '') !~* :encerrada
+              and (c.dias_sem_medicao >= 365
+                   or (c.fim_vigencia < current_date - 180 and c.situacao ilike 'em execu%'))
+            group by ce.politico_id, c.numero
+        )
+        select politico_id, count(*) as obras, sum(liberado) as liberado, max(dias) as dias,
+               avg(coalesce(pct, 0)) as pct_medio, min(ano) as ano_inicio, max(ano) as ano_fim,
+               jsonb_agg(jsonb_build_object(
+                   'numero', numero, 'obra', left(obra, 160), 'municipio', municipio_nome,
+                   'uf', uf, 'situacao', situacao, 'percentual', pct, 'liberado', liberado,
+                   'ultima_medicao', ultima_medicao, 'fim_vigencia', fim_vigencia,
+                   'dias_parada', dias
+               ) order by liberado desc) as lista
+        from obras
+        group by politico_id
+        having sum(liberado) >= 300000
+        """,
+    )
+    out = []
+    for r in rows:
+        liberado = float(r["liberado"])
+        pct = float(r["pct_medio"] or 0)
+        s = score(
+            25,
+            (25, escala_log(liberado, 300_000, 30_000_000)),
+            (20, escala(r["dias"], 365, 1460)),
+            (10, escala(r["obras"], 1, 10)),
+            (10, 1 - pct / 100),
+        )
+        lista = r["lista"]
+        out.append(
+            _alerta(
+                "obra_parada",
+                str(r["politico_id"]),
+                s,
+                politico_id=r["politico_id"],
+                titulo=f"{r['obras']} obra(s) paga(s) com emendas parada(s), "
+                f"{_brl(r['liberado'])} liberados",
+                descricao=(
+                    f"Obras financiadas por emendas do parlamentar receberam {_brl(r['liberado'])} "
+                    f"mas estão paradas (sem medição há 1 ano+ ou com prazo vencido) e com "
+                    f"execução física média de {pct:.0f}%. A maior é "
+                    f'"{lista[0]["obra"]}" em {lista[0]["municipio"]}-{lista[0]["uf"]}. '
+                    f"Quem executa é o convenente, mas a escolha do destino foi do autor."
+                ),
+                evidencias={
+                    "metricas": {
+                        "obras": r["obras"],
+                        "liberado": r["liberado"],
+                        "dias_parada_max": r["dias"],
+                        "execucao_media": round(pct, 1),
+                    },
+                    "obras": lista[:15],
+                },
+                ano_inicio=r["ano_inicio"],
+                ano_fim=r["ano_fim"],
+                valor=r["liberado"],
+            )
+        )
+    return out
+
+
+async def empreiteira_concentrada(session: AsyncSession) -> list[dict]:
+    """Mesma empresa (empreiteira, fornecedor) contratada em convênios de vários municípios,
+    todos pagos por emendas do mesmo parlamentar, e que depende dele para a maior parte deles."""
+    rows = await _rows(
+        session,
+        r"""
+        with contratos as (
+            select fornecedor_documento as doc, convenio_numero,
+                   max(fornecedor_nome) as nome, sum(valor) as valor
+            from convenio_contrato
+            where fornecedor_documento ~ :cnpj
+            group by fornecedor_documento, convenio_numero
+        ),
+        empresa as (
+            select doc, sum(valor) as total, count(*) as convenios from contratos group by doc
+        ),
+        par as (
+            select ce.politico_id, k.doc, max(k.nome) as nome,
+                   count(*) as convenios,
+                   count(distinct c.municipio_codigo_ibge) as municipios,
+                   sum(k.valor) as valor, min(c.ano) as ano_inicio, max(c.ano) as ano_fim,
+                   jsonb_agg(jsonb_build_object(
+                       'numero', c.numero, 'obra', left(coalesce(c.obra_nome, c.objeto), 160),
+                       'municipio', c.municipio_nome, 'uf', c.uf, 'ano', c.ano,
+                       'contratado', k.valor
+                   ) order by k.valor desc) as lista
+            from contratos k
+            join (select distinct convenio_numero, politico_id from convenio_emenda
+                  where politico_id is not null) ce on ce.convenio_numero = k.convenio_numero
+            join convenio c on c.numero = k.convenio_numero
+            group by ce.politico_id, k.doc
+        )
+        select p.*, e.total, e.convenios as convenios_total
+        from par p join empresa e using (doc)
+        where p.convenios >= 3 and p.municipios >= 2 and p.valor >= 1000000
+          and p.valor / nullif(e.total, 0) >= 0.5
+        """,
+    )
+    out = []
+    for r in rows:
+        participacao = float(r["valor"] / r["total"])
+        s = score(
+            30,
+            (20, escala(participacao, 0.5, 1.0)),
+            (15, escala(r["convenios"], 3, 15)),
+            (15, escala_log(float(r["valor"]), 1_000_000, 50_000_000)),
+            (10, escala(r["municipios"], 2, 10)),
+        )
+        out.append(
+            _alerta(
+                "empreiteira_concentrada",
+                f"{r['politico_id']}:{r['doc']}",
+                s,
+                politico_id=r["politico_id"],
+                titulo=f"{r['nome']} contratada em {r['municipios']} municípios, sempre com "
+                f"emendas do mesmo parlamentar",
+                descricao=(
+                    f"A empresa foi contratada em {r['convenios']} convênios ({_brl(r['valor'])}) "
+                    f"pagos por emendas do parlamentar, em {r['municipios']} municípios "
+                    f"diferentes. Isso é {_pct(participacao)} de tudo que ela contratou em "
+                    f"convênios federais. Licitações independentes em prefeituras diferentes "
+                    f"raramente convergem para a mesma empresa: vale checar se houve "
+                    f"direcionamento."
+                ),
+                evidencias={
+                    "metricas": {
+                        "convenios": r["convenios"],
+                        "municipios": r["municipios"],
+                        "contratado_com_emendas_do_autor": r["valor"],
+                        "contratado_total": r["total"],
+                        "participacao": round(participacao, 3),
+                    },
+                    "obras": r["lista"][:15],
+                },
+                ano_inicio=r["ano_inicio"],
+                ano_fim=r["ano_fim"],
+                documento=r["doc"],
+                nome=r["nome"],
+                valor=r["valor"],
+            )
+        )
+    return out
+
+
 # ----------------------------------------------------------------------------- eleições
 
 MOTIVOS_GRAVES = {
@@ -938,7 +1129,7 @@ CATALOGO: dict[str, Detector] = {
             "nota_duplicada",
             "Nota fiscal reembolsada em duplicidade",
             "gabinete",
-            1.0,
+            0.8,
             "Agrupa despesas por fornecedor, número da nota, valor e data de emissão. Mais de uma "
             "linha com identificadores de documento diferentes, sem estorno (valor negativo) "
             "para a mesma nota, é reembolso em dobro. Ignora notas abaixo de R$ 100, números com "
@@ -950,7 +1141,7 @@ CATALOGO: dict[str, Detector] = {
             "notas_sequenciais",
             "Fornecedor que só emite notas para o gabinete",
             "gabinete",
-            0.8,
+            0.7,
             "Para cada par gabinete-fornecedor com 6+ notas numéricas em 6+ meses e R$ 30 mil+, "
             "compara a quantidade de notas recebidas com a faixa de numeração usada (primeira a "
             "última). Empresa com outros clientes emite notas para eles no intervalo; se o "
@@ -1004,7 +1195,7 @@ CATALOGO: dict[str, Detector] = {
             "fornecedor_favorecido",
             "Fornecedor do gabinete também recebe emenda do parlamentar",
             "emendas",
-            0.9,
+            0.8,
             "Cruza CNPJs pagos pela cota (R$ 5 mil+) com favorecidos de emendas do mesmo autor "
             "(R$ 10 mil+). Exclui entes públicos, fundos, autarquias e sociedades anônimas; "
             "associações e fundações privadas pesam mais.",
@@ -1028,6 +1219,29 @@ CATALOGO: dict[str, Detector] = {
             "Emendas individuais pagas no ano: alerta quando 25%+ (e R$ 500 mil+) foram para "
             "outra UF que não a do mandato do autor naquele ano.",
             emenda_fora_da_base,
+        ),
+        Detector(
+            "obra_parada",
+            "Obras pagas com emendas e paradas",
+            "obras",
+            0.4,
+            "Convênios do Transferegov financiados por emendas do parlamentar, com acompanhamento "
+            "físico (medição, percentual ou cadastro no Obrasgov), abaixo de 100% executados, com "
+            "R$ 100 mil+ já liberados e sem medição há 1 ano+ ou com vigência vencida há 6 meses+ "
+            "ainda em execução. Ignora convênios com prestação de contas aprovada ou concluída, "
+            "anulados e cancelados. Soma por parlamentar (R$ 300 mil+ liberados).",
+            obra_parada,
+        ),
+        Detector(
+            "empreiteira_concentrada",
+            "Mesma empresa nos convênios de um parlamentar",
+            "obras",
+            0.5,
+            "Empresa (CNPJ) contratada pelos convenentes em 3+ convênios pagos por emendas do "
+            "mesmo autor, em 2+ municípios, somando R$ 1 milhão+, e que tem 50%+ de todos os "
+            "seus contratos em convênios federais ligados a esse autor. Licitações de "
+            "prefeituras diferentes convergindo para a mesma empresa sugerem direcionamento.",
+            empreiteira_concentrada,
         ),
         Detector(
             "historico_eleitoral",

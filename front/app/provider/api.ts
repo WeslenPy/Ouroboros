@@ -1,7 +1,10 @@
 import { HOST_API } from "~/constants/url"
 import type {
+  AlertaOut,
   CandidaturaOut,
+  Detectores,
   DespesaOut,
+  EmendaDetalhe,
   EmendaOut,
   EnteDetalhe,
   EnteOut,
@@ -11,19 +14,28 @@ import type {
   FiltroDespesa,
   FonteStatus,
   FotoOut,
+  GastoPresidenciaOut,
   Grafo,
   Health,
   MandatoOut,
   MatchPendenteOut,
+  ObraDetalhe,
+  ObraOut,
   Page,
   Params,
   PartidoDetalhe,
   PartidoOut,
   PoliticoDetalhe,
   PoliticoResumo,
+  PontoObra,
+  PresidenteGastos,
+  Ranking,
+  ResumoPresidencia,
   ResumoCandidaturas,
   ResumoDespesas,
   ResumoEmendas,
+  ResumoObras,
+  TransferenciaEspecialOut,
 } from "~/interface/api"
 
 export class ApiError extends Error {
@@ -192,13 +204,58 @@ export class OuroborosApi {
   emendasFavorecidos(params: Params) {
     return this.get<Page<FavorecidoOut>>("/emendas/favorecidos", params)
   }
+  emenda(codigo: string) {
+    return this.get<EmendaDetalhe>(`/emendas/${encodeURIComponent(codigo)}`)
+  }
+  transferenciasEspeciais(params: Params) {
+    return this.get<Page<TransferenciaEspecialOut>>("/emendas/transferencias-especiais", params)
+  }
 
-  /** Grafo centrado num nó: "politico:ID", "doc:CNPJ" ou "municipio:CODIGO_IBGE". */
+  // obras e convênios
+  obras(params: Params) {
+    return this.get<Page<ObraOut>>("/obras", params)
+  }
+  obrasResumo(params: Params) {
+    return this.get<ResumoObras>("/obras/resumo", params)
+  }
+  obrasMapa(params: Params) {
+    return this.get<PontoObra[]>("/obras/mapa", params)
+  }
+  obra(numero: number | string) {
+    return this.get<ObraDetalhe>(`/obras/${numero}`)
+  }
+
+  // alertas
+  alertas(params: Params) {
+    return this.get<Page<AlertaOut>>("/alertas", params)
+  }
+  alerta(id: number | string) {
+    return this.get<AlertaOut>(`/alertas/${id}`)
+  }
+  alertasDetectores() {
+    return this.get<Detectores>("/alertas/detectores")
+  }
+  alertasRanking(params: Params) {
+    return this.get<Ranking>("/alertas/ranking", params)
+  }
+
+  // presidência
+  presidentes() {
+    return this.get<PresidenteGastos[]>("/presidencia/presidentes")
+  }
+  presidenciaGastos(params: Params) {
+    return this.get<Page<GastoPresidenciaOut>>("/presidencia/gastos", params)
+  }
+  presidenciaResumo(params: Params) {
+    return this.get<ResumoPresidencia>("/presidencia/resumo", params)
+  }
+
+  /** Grafo centrado num nó: "politico:ID", "doc:CNPJ", "municipio:CODIGO_IBGE" ou "obra:NUMERO". */
   grafo(no: string, params: Params) {
     const i = no.indexOf(":")
-    const rota = ({ politico: "politico", doc: "documento", municipio: "municipio" } as const)[
-      no.slice(0, i) as "politico" | "doc" | "municipio"
-    ]
+    const rota = (
+      { politico: "politico", doc: "documento", municipio: "municipio", obra: "obra" } as const
+    )[no.slice(0, i) as "politico" | "doc" | "municipio" | "obra"]
     if (!rota) return Promise.reject(new ApiError(400, "nó inválido"))
     return this.get<Grafo>(`/grafo/${rota}/${encodeURIComponent(no.slice(i + 1))}`, params)
   }

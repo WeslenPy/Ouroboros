@@ -15,7 +15,6 @@ Autor vem só como código CGU + nome parlamentar em maiúsculas ("JANDIRA FEGHA
 ao político é por nome contra Câmara e Senado (ver loaders.relink_emendas).
 """
 
-import re
 from collections.abc import AsyncIterator, Sequence
 from datetime import date
 from decimal import Decimal
@@ -36,7 +35,7 @@ from ouroboros.core.parse import (
 )
 from ouroboros.core.privacy import documento_publico
 from ouroboros.core.raw_store import RawRecord
-from ouroboros.core.text import normalize
+from ouroboros.core.text import nome_parlamentar
 
 DOWNLOAD_URL = "https://portaldatransparencia.gov.br/download-de-dados/emendas-parlamentares/UNICO"
 
@@ -77,14 +76,11 @@ def _documento(value: str | None) -> tuple[str | None, str | None]:
     return documento_publico(value)
 
 
-_TITULO = re.compile(r"^(dep|sen|deputad[oa]|senador[a]?)\.?\s+")
-
-
 def _autor(codigo: str | None, nome: str | None) -> tuple[str | None, str, str]:
     """Nome normalizado sem título ("DEP. JOSIVALDO JP" -> "josivaldo jp") para casar com o
     nome parlamentar."""
     nome = _txt(nome) or "Sem informação"
-    return _txt(codigo), nome, _TITULO.sub("", normalize(nome))
+    return _txt(codigo), nome, nome_parlamentar(nome)
 
 
 class TransparenciaEmendasConnector(HttpConnector):

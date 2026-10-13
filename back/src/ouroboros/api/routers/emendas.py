@@ -1,16 +1,36 @@
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import Select, String, cast, desc, func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import Integer, Select, String, cast, desc, func, select
 
 from ouroboros.api.deps import Paging, Session
 from ouroboros.api.export import page_or_csv
 from ouroboros.api.pagination import Page, encode_cursor
-from ouroboros.api.schemas import EmendaOut, FavorecidoOut, ResumoEmendas, TotalChave
+from ouroboros.api.schemas import (
+    EmendaDetalhe,
+    EmendaOut,
+    FavorecidoOut,
+    ObraOut,
+    ResumoEmendas,
+    TotalChave,
+    TransferenciaEspecialExecutorOut,
+    TransferenciaEspecialOut,
+)
 from ouroboros.core.privacy import digits
 from ouroboros.core.text import normalize
-from ouroboros.models import Emenda, EmendaFavorecido, Politico
+from ouroboros.models import (
+    Convenio,
+    ConvenioEmenda,
+    Emenda,
+    EmendaConvenio,
+    EmendaFavorecido,
+    Politico,
+    TransferenciaEspecial,
+    TransferenciaEspecialExecutor,
+    TransferenciaEspecialPagamento,
+)
 
 router = APIRouter(prefix="/emendas", tags=["emendas"])
 
@@ -231,3 +251,141 @@ async def listar_favorecidos(
         next_cursor=encode_cursor(rows[-1].id) if has_more else None,
     )
     return page_or_csv(request, page, "emendas_favorecidos")
+
+
+T = TransferenciaEspecial
+
+
+async def _transferencias(session: Session, stmt: Select) -> list[TransferenciaEspecialOut]:
+    """Planos de transferência especial com executores (objeto) e total pago."""
+    planos = list((await session.scalars(stmt)).all())
+    if not planos:
+        return []
+    ids = [p.id for p in planos]
+    pagos = dict(
+        (
+            await session.execute(
+                select(
+                    TransferenciaEspecialPagamento.plano_id,
+                    func.sum(TransferenciaEspecialPagamento.valor),
+                )
+                .where(TransferenciaEspecialPagamento.plano_id.in_(ids))
+                .group_by(TransferenciaEspecialPagamento.plano_id)
+            )
+        ).all()
+    )
+    executores: dict[int, list[TransferenciaEspecialExecutorOut]] = {}
+    for e in await session.scalars(
+        select(TransferenciaEspecialExecutor).where(TransferenciaEspecialExecutor.plano_id.in_(ids))
+    ):
+        executores.setdefault(e.plano_id, []).append(
+            TransferenciaEspecialExecutorOut.model_validate(e)
+        )
+    return [
+        TransferenciaEspecialOut.model_validate(p).model_copy(
+            update={
+                "valor_pago": pagos.get(p.id) or Decimal("0"),
+                "executores": executores.get(p.id, []),
+            }
+        )
+        for p in planos
+    ]
+
+
+@router.get(
+    "/transferencias-especiais",
+    response_model=Page[TransferenciaEspecialOut],
+    summary="Transferências especiais (emendas Pix): plano, executor e objeto",
+)
+async def listar_transferencias(
+    session: Session,
+    paging: Paging,
+    ano: int | None = Query(None, ge=2000, le=2100),
+    politico: int | None = Query(None, description="ID do político autor"),
+    emenda: str | None = Query(None, description="Código da emenda"),
+    uf: str | None = Query(None, min_length=2, max_length=2),
+    municipio: int | None = Query(None, description="Código IBGE do município beneficiário"),
+    beneficiario: str | None = Query(None, description="CNPJ do beneficiário"),
+):
+    stmt = select(T).order_by(T.id.desc()).limit(paging.limit + 1)
+    if ano:
+        stmt = stmt.where(T.ano == ano)
+    if politico is not None:
+        stmt = stmt.where(T.politico_id == politico)
+    if emenda:
+        stmt = stmt.where(T.emenda_codigo == emenda)
+    if uf:
+        stmt = stmt.where(T.uf == uf.upper())
+    if municipio:
+        stmt = stmt.where(T.municipio_codigo_ibge == municipio)
+    if beneficiario:
+        stmt = stmt.where(T.beneficiario_cnpj == digits(beneficiario))
+    if paging.after is not None:
+        stmt = stmt.where(T.id < int(paging.after))
+    items = await _transferencias(session, stmt)
+    has_more = len(items) > paging.limit
+    items = items[: paging.limit]
+    return Page(items=items, next_cursor=encode_cursor(items[-1].id) if has_more else None)
+
+
+@router.get(
+    "/{codigo}",
+    response_model=EmendaDetalhe,
+    summary="Uma emenda de ponta a ponta: destinos, favorecidos, obras e transferências",
+)
+async def detalhe_emenda(codigo: str, session: Session) -> EmendaDetalhe:
+    destinos = list(
+        await session.scalars(select(E).where(E.codigo == codigo).order_by(PAGO.desc()))
+    )
+    if not destinos:
+        raise HTTPException(status_code=404, detail="emenda não encontrada")
+    primeira = destinos[0]
+    politico_id = next((d.politico_id for d in destinos if d.politico_id), None)
+    politico_nome = (
+        await session.scalar(select(Politico.nome).where(Politico.id == politico_id))
+        if politico_id
+        else None
+    )
+
+    f = EmendaFavorecido
+    favorecidos = [
+        TotalChave(chave=doc, rotulo=nome, empenhado=total, pago=total, quantidade=q)
+        for doc, nome, total, q in await session.execute(
+            select(
+                f.favorecido_documento, func.max(f.favorecido_nome), func.sum(f.valor), func.count()
+            )
+            .where(f.emenda_codigo == codigo)
+            .group_by(f.favorecido_documento)
+            .order_by(desc(func.sum(f.valor)))
+            .limit(50)
+        )
+    ]
+    # convênio pela emenda no Transferegov ou pelo número que a Transparência informa
+    numeros = select(ConvenioEmenda.convenio_numero).where(ConvenioEmenda.emenda_codigo == codigo)
+    numeros_cgu = select(cast(EmendaConvenio.numero, Integer)).where(
+        EmendaConvenio.emenda_codigo == codigo, EmendaConvenio.numero.op("~")("^[0-9]{1,9}$")
+    )
+    obras = [
+        ObraOut.model_validate(c)
+        for c in await session.scalars(
+            select(Convenio)
+            .where(Convenio.numero.in_(numeros) | Convenio.numero.in_(numeros_cgu))
+            .order_by(Convenio.valor_global.desc())
+        )
+    ]
+    return EmendaDetalhe(
+        codigo=codigo,
+        ano=primeira.ano,
+        tipo=primeira.tipo,
+        autor_nome=primeira.autor_nome,
+        politico_id=politico_id,
+        politico_nome=politico_nome,
+        empenhado=sum((d.valor_empenhado for d in destinos), Decimal("0")),
+        pago=sum((d.valor_pago + d.valor_rp_pago for d in destinos), Decimal("0")),
+        destinos=[EmendaOut.model_validate(d) for d in destinos],
+        favorecidos=favorecidos,
+        obras=obras,
+        transferencias_especiais=await _transferencias(
+            session, select(T).where(T.emenda_codigo == codigo).order_by(T.id)
+        ),
+    )

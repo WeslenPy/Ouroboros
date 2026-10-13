@@ -15,7 +15,10 @@
       "ops": "Operations"
     },
     "grafo": "Connections map",
-    "emendas": "Amendments"
+    "emendas": "Amendments",
+    "alertas": "Red flags",
+    "presidencia": "Presidency",
+    "obras": "Public works"
   },
   "languages": {
     "portuguese": "Português",
@@ -175,8 +178,12 @@
       "mandatos": "Terms",
       "candidaturas": "Candidacies",
       "fotos": "Photos",
-      "ids": "Identifiers"
-    }
+      "ids": "Identifiers",
+      "alertas": "Red flags",
+      "presidencia": "Presidency",
+      "obras": "Public works"
+    },
+    "obrasDesc": "Agreements and public works funded by this legislator's amendments."
   },
   "despesa": {
     "listDesc": "Parliamentary allowance (Chamber CEAP and Senate CEAPS), document by document.",
@@ -199,7 +206,9 @@
     "maioresFornecedores": "Top suppliers"
   },
   "fornecedor": {
-    "recebido": "Total received"
+    "recebido": "Total received",
+    "obrasContratada": "Public works where the company was hired or paid",
+    "obrasConvenente": "Agreements it executes (grantee)"
   },
   "candidatura": {
     "listDesc": "TSE candidacy records.",
@@ -233,7 +242,8 @@
     "ufCodigo": "State code",
     "dados": "Details",
     "verPoliticos": "State politicians",
-    "verDespesas": "State expenses"
+    "verDespesas": "State expenses",
+    "obras": "Public works and agreements in the municipality"
   },
   "origem": {
     "title": "Record lineage",
@@ -278,13 +288,15 @@
     "heroGrupos": {
       "gastos": "Parliamentary allowance: flights, office rent, advertising… and the companies paid.",
       "emendas": "Federal budget money directed by the legislator: area, destination city and recipient.",
-      "conexoes": "Other politicians who paid the same company or sent amendments to the same entity."
+      "conexoes": "Other politicians who paid the same company or sent amendments to the same entity.",
+      "obras": "Agreements and works paid with amendments: where, their status and which company was hired."
     },
     "grupos": {
       "carreira": "Career",
       "gastos": "Office expenses",
       "emendas": "Amendments",
-      "conexoes": "Connections"
+      "conexoes": "Connections",
+      "obras": "Public works"
     },
     "tipos": {
       "politico": "Politician",
@@ -297,7 +309,8 @@
       "area": "Area",
       "municipio": "Destination",
       "favorecido": "Recipient",
-      "autor": "Collective author"
+      "autor": "Collective author",
+      "obra": "Work / agreement"
     },
     "explorar": "Explore from here",
     "abrirPagina": "Open page",
@@ -305,7 +318,7 @@
     "ligacoes": "Links",
     "resumo": "Summary",
     "comoLer": "How to read the map",
-    "dica1": "Each color is a topic: career, office expenses, amendments and connections to other politicians.",
+    "dica1": "Each color is a topic: career, office expenses, amendments, public works and connections to other politicians.",
     "dica2": "Thicker lines = more money. Hover an item to see its path to the center.",
     "dica3": "Click an item showing +N to open its details; double-click a politician, company or city to center the map on it.",
     "dicaCanvas": "Click for details · double-click to explore",
@@ -337,7 +350,25 @@
       "politico_pagou": "{{rotulo}} paid {{valor}} to {{centro}} with the allowance.",
       "politico_emendou": "Amendments by {{rotulo}} paid {{valor}} to {{centro}}.",
       "politico_autor": "{{rotulo}} sent {{valor}} in amendments to {{centro}}.",
-      "politico": "{{rotulo}}"
+      "politico": "{{rotulo}}",
+      "centro_obra": "Map of {{centro}}: where the money came from, where the work is and who was hired to build it.",
+      "hub_obras_politico": "Agreements and works funded by {{centro}}'s amendments: {{valor}} in total value.",
+      "hub_obras_doc": "Works and agreements where {{centro}} was hired or paid: {{valor}} in total value.",
+      "hub_convenios_doc": "Agreements executed by {{centro}} as grantee: {{valor}} in total value.",
+      "hub_obras_municipio": "Works and agreements in {{centro}}: {{valor}} in total value.",
+      "hub_emendas_obra": "Amendments and transfers paying for the work: {{valor}}.",
+      "hub_local_obra": "Where the work is and who is responsible for executing the agreement.",
+      "hub_execucao_obra": "Companies hired through bidding and paid with the agreement money.",
+      "obra": "{{rotulo}} ({{detalhe}}): {{valor}} agreement.",
+      "obra_municipio": "{{rotulo}} ({{detalhe}}): {{valor}} agreement in the municipality.",
+      "obra_empreiteira": "{{pai}} was also hired for {{rotulo}} ({{detalhe}}).",
+      "empreiteira": "{{rotulo}} is the main company hired for {{pai}}: {{valor}}.",
+      "executou": "{{rotulo}} executed the work: {{detalhe}}.",
+      "local_obra": "The work is located in {{rotulo}}.",
+      "convenente": "{{rotulo}} is the grantee: received {{valor}} in the agreement account and hires the work.",
+      "politico_obra": "{{rotulo}} sent a {{valor}} amendment to {{pai}}.",
+      "politico_financiou": "{{rotulo}} directed {{valor}} in amendments to this work.",
+      "conexao_obra": "{{rotulo}} also sent {{valor}} in amendments to works where {{pai}} was hired."
     },
     "recolher": "Collapse",
     "expandirTudo": "Expand all"
@@ -374,6 +405,162 @@
       "bancada": "Caucus",
       "comissao": "Committee",
       "relator": "Rapporteur"
-    }
+    },
+    "execucaoComo": "Agreements and special transfers",
+    "destinos": "Destinations",
+    "obras": "What it became: agreements and public works",
+    "semObras": "No Transferegov agreement linked to this amendment",
+    "transferencias": "Special transfers (\"Pix\" amendments)"
+  },
+  "alerta": {
+    "desc": "Signs of fraud and misuse found by cross-checking expense receipts, budget amendments and candidacies",
+    "avisoTitulo": "A sign is not an accusation",
+    "aviso": "Alerts are statistical signs or public-data cross-checks, not proof of wrongdoing.",
+    "totalAlertas": "Alerts",
+    "altaSeveridade": "High severity",
+    "detectores": "Detectors",
+    "atualizado": "Computed",
+    "atualizadoHint": "Recomputed on every run of the analises job",
+    "abas": {
+      "ranking": "Risk ranking",
+      "lista": "Alerts",
+      "metodologia": "Methodology"
+    },
+    "rankingHint": "Risk 0-100 combines detectors (noisy-OR): findings from different detectors reinforce each other; repeating one detector adds little.",
+    "politico": "Politician",
+    "partidoUf": "Party · State",
+    "risco": "Risk",
+    "alertas": "Alerts",
+    "valorEnvolvido": "Amount involved",
+    "principais": "Main signs",
+    "detector": "Detector",
+    "severidade": "Severity",
+    "severidades": {
+      "alta": "High",
+      "media": "Medium",
+      "baixa": "Low"
+    },
+    "areas": {
+      "gabinete": "Office allowance",
+      "emendas": "Amendments",
+      "eleicoes": "Elections",
+      "obras": "Public works"
+    },
+    "confianca": "confidence",
+    "evidencias": "Evidence",
+    "documentos_one": "{{count}} document",
+    "documentos_other": "{{count}} documents",
+    "verNota": "view receipt",
+    "emendas": "Amendments involved",
+    "digitos": "First digit: observed (bar) × expected (tick)",
+    "esperado": "expected",
+    "geradoEm": "Computed on {{data}}",
+    "vazio": "No alerts",
+    "vazioDesc": "Nothing matches these filters. Alerts are produced by the analises job.",
+    "semAlertas": "No signs found for this politician in the loaded data.",
+    "riscoPolitico": "Computed risk"
+  },
+  "presidencia": {
+    "desc": "Presidential payment card spending by term, 2003 onwards",
+    "avisoTitulo": "How to read",
+    "aviso": "The card is used by Presidency staff (travel, lodging, food, security) and is attributed here to the president in office on that date. Nominal values, not inflation-adjusted. 2003-2022: Chief of Staff spreadsheet with formerly secret spending; 2023 onwards: Transparency Portal, where part is still secret. Compare per-day spending: terms have different lengths.",
+    "data": "Date",
+    "presidente": "President",
+    "favorecido": "Payee",
+    "categoria": "Category",
+    "tipo": "Type",
+    "credito": "Purchase",
+    "saque": "Cash withdrawal",
+    "sigiloso": "Secret",
+    "total": "Total on card",
+    "lancamentos_one": "{{count, number}} entry",
+    "lancamentos_other": "{{count, number}} entries",
+    "saques": "Cash withdrawals",
+    "saquesHint": "Cash: no merchant on the statement",
+    "aindaSigiloso": "Still secret",
+    "aindaSigilosoHint": "No date, holder or payee (2023+)",
+    "maiorCategoria": "Top category",
+    "porAno": "By year",
+    "porCategoria": "By category",
+    "maioresFavorecidos": "Top payees",
+    "porUnidade": "By management unit",
+    "semUnidade": "Presidency (2003-2022 spreadsheet)",
+    "lancamentosTitulo": "Entries",
+    "dia": "day",
+    "temSigiloso": "Partly still secret",
+    "porDia": "Spending per day in office",
+    "porDiaDesc": "Term total divided by days in office. Click to filter.",
+    "porDiaLabel": "Per day",
+    "mandato": "Term"
+  },
+  "obra": {
+    "listDesc": "Transferegov agreements: where money (including amendments) became public works, when they started, how much was released and their status.",
+    "obra": "Work / purpose",
+    "convenio": "Agreement",
+    "convenios": "Agreements",
+    "local": "Location",
+    "situacao": "Status",
+    "semSituacao": "No status",
+    "execucao": "Physical progress",
+    "valorGlobal": "Total value",
+    "liberado": "Released",
+    "parada": "Stalled",
+    "paradas": "Stalled works",
+    "paradasHint_one": "{{count, number}} work with location",
+    "paradasHint_other": "{{count, number}} works with location",
+    "comEmenda": "With amendment",
+    "filtroObjeto": "Purpose or work…",
+    "repasseHint": "{{valor}} from the federal government",
+    "liberadoHint": "Already deposited in the agreement account",
+    "mapa": "Map of public works",
+    "mapaDesc": "Largest works with coordinates: size ~ value, color ~ status. Click to open.",
+    "porSituacao": "By status",
+    "porAno": "Total and released value by year",
+    "porUf": "By state",
+    "porOrgao": "Ministries that transfer the most",
+    "maioresAutores": "Amendment authors with most works",
+    "maioresFornecedores": "Most hired companies (hired / paid)",
+    "qtd_one": "{{count, number}} agreement",
+    "qtd_other": "{{count, number}} agreements",
+    "repasseContrapartida": "Federal {{repasse}} · counterpart {{contrapartida}}",
+    "empenhadoHint": "Committed: {{valor}}",
+    "pagoFornecedores": "Paid to suppliers",
+    "saldoConta": "Account balance: {{valor}}",
+    "diasSemMedicao_one": "{{count, number}} day without measurement",
+    "diasSemMedicao_other": "{{count, number}} days without measurement",
+    "semAcompanhamento": "No physical progress reported",
+    "prorrogacoes_one": "{{count}} extension",
+    "prorrogacoes_other": "{{count}} extensions",
+    "aditivos_one": "{{count}} amendment term",
+    "aditivos_other": "{{count}} amendment terms",
+    "datas": {
+      "titulo": "Timeline",
+      "proposta": "Proposal",
+      "assinatura": "Signed",
+      "inicioVigencia": "Term start",
+      "inicioObra": "Work start",
+      "ultimaMedicao": "Last measurement",
+      "fimVigencia": "Term end",
+      "fimOriginal": "Original end",
+      "prestacaoContas": "Accountability deadline"
+    },
+    "convenente": "Grantee (executes it)",
+    "emendas": "Funding amendments",
+    "valorEmenda": "Amendment value",
+    "impositiva": "Mandatory",
+    "contratos": "Contracts (bidding)",
+    "fornecedor": "Supplier",
+    "contrato": "Contract",
+    "pagamentos": "Payments from the agreement account",
+    "periodo": "Period",
+    "pessoasFisicas": "Individuals (summed)",
+    "pagamentosQtd_one": "{{count, number}} payment",
+    "pagamentosQtd_other": "{{count, number}} payments",
+    "metas": "Physical schedule goals",
+    "meta": "Goal",
+    "desembolsos": "Federal releases",
+    "data": "Date",
+    "ordemBancaria": "Bank order",
+    "fonte": "Source:"
   }
 }

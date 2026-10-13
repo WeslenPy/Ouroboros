@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     # Fotos: só eleições gerais recentes (municipais são centenas de milhares de fotos)
     tse_fotos_anos: list[int] = [2014, 2018, 2022]
     emendas_anos: list[int] = list(range(2014, _HOJE.year + 1))
+    # CPGF da Presidência no Portal; 2003-2022 vem da planilha da Casa Civil
+    cpgf_anos: list[int] = list(range(2023, _HOJE.year + 1))
+    # Convênios do Transferegov (ano da proposta): Siconv começou em 2008
+    convenios_anos: list[int] = list(range(2008, _HOJE.year + 1))
     # ZIPs de fotos do TSE: um por UF; "BR" = candidatos a presidente
     tse_fotos_ufs: list[str] = (
         "AC AL AM AP BA CE DF ES GO MA MG MS MT PA PB PE PI PR RJ RN RO RR RS SC SE SP TO BR"

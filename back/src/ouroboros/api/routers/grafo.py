@@ -6,6 +6,8 @@ temáticos (carreira, gastos do gabinete, emendas) para ficar legível por qualq
     político -> Gastos do gabinete -> categoria -> fornecedor -> outros políticos que pagaram
     político -> Emendas -> área (Saúde...) -> município de destino / quem recebeu
     político -> Carreira -> partidos, cargos, eleições
+    político -> Obras -> convênio/obra -> empreiteira -> outros políticos que financiaram obras dela
+    obra -> emendas (autores), local (município, convenente), quem executou (empreiteiras)
 
 `nivel` e `pai` orientam o layout radial no front; `chave` permite recentrar o grafo no nó.
 """
@@ -21,6 +23,10 @@ from ouroboros.api.schemas import Grafo, GrafoAresta, GrafoNo
 from ouroboros.core.privacy import digits
 from ouroboros.models import (
     Candidatura,
+    Convenio,
+    ConvenioContrato,
+    ConvenioEmenda,
+    ConvenioFornecedor,
     DespesaGabinete,
     Emenda,
     EmendaFavorecido,
@@ -46,6 +52,9 @@ D = DespesaGabinete
 E = Emenda
 F = EmendaFavorecido
 PAGO = E.valor_pago + E.valor_rp_pago
+C = Convenio
+CE = ConvenioEmenda
+K = ConvenioContrato
 
 
 class _Grafo:
@@ -245,9 +254,19 @@ async def grafo_politico(
     await _carreira(session, g, p.id)
     fornecedores = await _gastos(session, g, p.id, ano, limite)
     favorecidos = await _emendas(session, g, p.id, ano, limite)
+    financiadas = C.numero.in_(select(CE.convenio_numero).where(CE.politico_id == p.id))
+    empreiteiras = await _obras(
+        session,
+        g,
+        g.centro,
+        [financiadas] + ([C.ano == ano] if ano else []),
+        "Obras e convênios",
+        limite,
+    )
     if conexoes:
         await _conexoes_despesa(session, g, fornecedores[:4], p.id, ano)
         await _conexoes_emenda(session, g, favorecidos[:3], p.id, ano)
+        await _conexoes_obra(session, g, empreiteiras[:3], p.id)
     await _rotular_politicos(session, g)
     centro_no = g.nos[centro]
     infos = await _politicos(session, {p.id})
@@ -600,11 +619,16 @@ async def grafo_documento(
 
     d_base = [D.fornecedor_documento == doc] + ([D.ano == ano] if ano else [])
     f_base = [F.favorecido_documento == doc] + ([F.ano == ano] if ano else [])
-    nome = await session.scalar(select(func.max(D.fornecedor_nome)).where(*d_base)) or (
-        await session.scalar(select(func.max(F.favorecido_nome)).where(*f_base))
+    nome = (
+        await session.scalar(select(func.max(D.fornecedor_nome)).where(*d_base))
+        or await session.scalar(select(func.max(F.favorecido_nome)).where(*f_base))
+        or await session.scalar(
+            select(func.max(K.fornecedor_nome)).where(K.fornecedor_documento == doc)
+        )
+        or await session.scalar(select(func.max(C.proponente_nome)).where(C.proponente_cnpj == doc))
     )
     if nome is None:
-        raise HTTPException(status_code=404, detail="documento sem despesas nem emendas")
+        raise HTTPException(status_code=404, detail="documento sem despesas, emendas nem obras")
     g.no(centro, tipo="fornecedor", rotulo=_nome(nome), detalhe=_fmt_cnpj(doc), nivel=0,
          grupo="centro", chave=doc)  # fmt: skip
 
@@ -670,6 +694,13 @@ async def grafo_documento(
         )
         g.aresta(centro, hub, "hub", total)
         await _autores(session, g, hub, f_base, F, limite)
+
+    anos = [C.ano == ano] if ano else []
+    contratada = C.numero.in_(select(K.convenio_numero).where(K.fornecedor_documento == doc))
+    await _obras(session, g, centro, [contratada, *anos], "Contratada em obras", limite,
+                 autores=True, empreiteiras=False)  # fmt: skip
+    await _obras(session, g, centro, [C.proponente_cnpj == doc, *anos], "Convênios que executa",
+                 limite, hub_id="hub:convenios", autores=True)  # fmt: skip
 
     await _partidos_dos_politicos(session, g)
     await _rotular_politicos(session, g)
@@ -778,6 +809,292 @@ async def grafo_municipio(
                   detalhe=f"{q} emendas", valor=valor, nivel=2, grupo="gastos",
                   pai=hub_areas)  # fmt: skip
         g.aresta(hub_areas, no, "emenda", valor)
+
+    obras = [C.municipio_codigo_ibge == codigo_ibge] + ([C.ano == ano] if ano else [])
+    await _obras(session, g, centro, obras, "Obras no município", limite)
+
+    await _partidos_dos_politicos(session, g)
+    await _rotular_politicos(session, g)
+    return g.build()
+
+
+# --------------------------------------------------------------------------- obras
+
+
+def _rotulo_obra(c: Convenio) -> str:
+    texto = (c.obra_nome or c.objeto or f"Convênio {c.numero}").strip()
+    texto = _titulo(texto)
+    return texto if len(texto) <= 70 else texto[:67].rstrip() + "..."
+
+
+def _detalhe_obra(c: Convenio) -> str:
+    local = " - ".join(
+        x for x in (_nome(c.municipio_nome) if c.municipio_nome else None, c.uf) if x
+    )
+    pct = f"{c.percentual_execucao:.0f}% executado" if c.percentual_execucao is not None else None
+    return " · ".join(p for p in (local, c.situacao, pct) if p) or f"Convênio {c.numero}"
+
+
+def _no_obra(g: _Grafo, c: Convenio, pai: str, grupo: str = "obras") -> str:
+    return g.no(
+        f"obra:{c.numero}",
+        tipo="obra",
+        rotulo=_rotulo_obra(c),
+        detalhe=_detalhe_obra(c),
+        valor=c.valor_global,
+        nivel=g.nos[pai].nivel + 1,
+        grupo=grupo,
+        pai=pai,
+        chave=str(c.numero),
+    )
+
+
+def _brl(valor: Decimal) -> str:
+    return f"R$ {valor:,.0f}".replace(",", ".")
+
+
+async def _obras(
+    session: Session,
+    g: _Grafo,
+    pai: str,
+    where: list,
+    rotulo: str,
+    limite: int,
+    *,
+    hub_id: str = "hub:obras",
+    autores: bool = False,
+    empreiteiras: bool = True,
+) -> list[tuple[str, str]]:
+    """Hub com as maiores obras (convênios) que casam com `where` e, de cada uma, a principal
+    empreiteira contratada e/ou os autores das emendas. Devolve as empreiteiras novas no grafo
+    (nó, CNPJ), para buscar outros políticos ligados a elas."""
+    qtd, total, desembolsado = (
+        await session.execute(
+            select(
+                func.count(),
+                func.coalesce(func.sum(C.valor_global), 0),
+                func.coalesce(func.sum(C.valor_desembolsado), 0),
+            ).where(*where)
+        )
+    ).one()
+    if not qtd:
+        return []
+    hub = g.no(
+        hub_id,
+        tipo="hub",
+        rotulo=rotulo,
+        detalhe=f"{qtd} convênios · liberado {_brl(desembolsado)}",
+        valor=total,
+        nivel=g.nos[pai].nivel + 1,
+        grupo="obras",
+        pai=pai,
+    )
+    g.aresta(pai, hub, "hub", total)
+    obras = list(
+        await session.scalars(select(C).where(*where).order_by(C.valor_global.desc()).limit(limite))
+    )
+    for c in obras:
+        no = _no_obra(g, c, hub)
+        g.aresta(hub, no, "obra", c.valor_global)
+        municipio = f"municipio:{c.municipio_codigo_ibge}"
+        if c.municipio_codigo_ibge and municipio in g.nos and municipio != pai:
+            g.aresta(no, municipio, "local")
+
+    numeros = [c.numero for c in obras]
+    saida: list[tuple[str, str]] = []
+    if empreiteiras and numeros:
+        principais = (
+            await session.execute(
+                select(K.convenio_numero, K.fornecedor_documento, K.fornecedor_nome, K.valor)
+                .ext(distinct_on(K.convenio_numero))
+                .where(K.convenio_numero.in_(numeros), func.length(K.fornecedor_documento) == 14)
+                .order_by(K.convenio_numero, K.valor.desc())
+            )
+        ).all()
+        for numero, doc, nome, valor in principais:
+            origem = f"obra:{numero}"
+            no_id = f"doc:{doc}"
+            novo = no_id not in g.nos
+            g.no(no_id, tipo="fornecedor", rotulo=_nome(nome), detalhe="empreiteira contratada",
+                 valor=valor, nivel=g.nos[origem].nivel + 1, grupo="obras", pai=origem,
+                 chave=doc)  # fmt: skip
+            g.aresta(origem, no_id, "contrato", valor)
+            if novo:
+                saida.append((no_id, doc))
+    if autores and numeros:
+        linhas = (
+            await session.execute(
+                select(
+                    CE.convenio_numero,
+                    CE.politico_id,
+                    func.max(CE.parlamentar_nome),
+                    func.sum(CE.valor_repasse),
+                )
+                .where(CE.convenio_numero.in_(numeros))
+                .group_by(CE.convenio_numero, CE.politico_id, CE.parlamentar_nome_normalizado)
+            )
+        ).all()
+        for numero, pid, autor, valor in linhas:
+            origem = f"obra:{numero}"
+            nivel = g.nos[origem].nivel + 1
+            if pid:
+                no = g.no(f"politico:{pid}", tipo="politico", rotulo=autor, nivel=nivel,
+                          grupo="obras", pai=origem, chave=str(pid))  # fmt: skip
+            else:
+                no = g.no(f"autor:{autor}", tipo="autor", rotulo=_nome(autor),
+                          detalhe="autor coletivo", nivel=nivel, grupo="obras",
+                          pai=origem)  # fmt: skip
+            g.aresta(origem, no, "emenda", valor)
+    return saida
+
+
+async def _conexoes_obra(
+    session: Session, g: _Grafo, docs: list[tuple[str, str]], excluir: int | None
+) -> set[int]:
+    """Outros políticos cujas emendas pagaram obras da mesma empreiteira (até 3 por empresa)."""
+    pares: list[tuple[str, int, Decimal]] = []
+    ligados: set[int] = set()
+    for no_id, documento in docs:
+        stmt = (
+            select(CE.politico_id, func.sum(CE.valor_repasse).label("t"))
+            .where(
+                CE.politico_id.is_not(None),
+                CE.convenio_numero.in_(
+                    select(K.convenio_numero).where(K.fornecedor_documento == documento)
+                ),
+            )
+            .group_by(CE.politico_id)
+            .order_by(desc("t"))
+            .limit(4)
+        )
+        if excluir is not None:
+            stmt = stmt.where(CE.politico_id != excluir)
+        for pid, total in (await session.execute(stmt)).all()[:3]:
+            pares.append((no_id, pid, total))
+            ligados.add(pid)
+    return _ligar_politicos(g, pares, ligados, "conexao")
+
+
+@router.get(
+    "/obra/{numero}",
+    response_model=Grafo,
+    summary="Rede de uma obra/convênio: quem mandou o dinheiro, onde e quem executou",
+)
+async def grafo_obra(numero: int, session: Session, limite: int = Query(10, ge=3, le=30)) -> Grafo:
+    c = await session.get(Convenio, numero)
+    if c is None:
+        raise HTTPException(status_code=404, detail="convênio não encontrado")
+    centro = f"obra:{numero}"
+    g = _Grafo(centro)
+    g.no(centro, tipo="obra", rotulo=_rotulo_obra(c), detalhe=_detalhe_obra(c),
+         valor=c.valor_global, nivel=0, grupo="centro", chave=str(numero))  # fmt: skip
+
+    # de onde veio o dinheiro
+    autores = (
+        await session.execute(
+            select(
+                CE.politico_id,
+                func.max(CE.parlamentar_nome),
+                func.max(CE.tipo),
+                func.sum(CE.valor_repasse).label("t"),
+            )
+            .where(CE.convenio_numero == numero)
+            .group_by(CE.politico_id, CE.parlamentar_nome_normalizado)
+            .order_by(desc("t"))
+        )
+    ).all()
+    if autores:
+        total = sum((v or ZERO for *_, v in autores), ZERO)
+        hub = g.no("hub:emendas", tipo="hub", rotulo="Emendas que pagam a obra",
+                   detalhe=f"{len(autores)} autores", valor=total, nivel=1, grupo="emendas",
+                   pai=centro)  # fmt: skip
+        g.aresta(centro, hub, "hub", total)
+        for pid, nome, tipo, valor in autores:
+            if pid:
+                no = g.no(f"politico:{pid}", tipo="politico", rotulo=nome, nivel=2,
+                          grupo="emendas", pai=hub, chave=str(pid), valor=valor)  # fmt: skip
+            else:
+                no = g.no(f"autor:{nome}", tipo="autor", rotulo=_nome(nome),
+                          detalhe=f"emenda de {(tipo or 'autor coletivo').lower()}", nivel=2,
+                          grupo="emendas", pai=hub, valor=valor)  # fmt: skip
+            g.aresta(hub, no, "emenda", valor)
+    else:
+        hub = g.no("hub:emendas", tipo="hub", rotulo="Repasse do ministério",
+                   detalhe=_nome(c.orgao_superior) if c.orgao_superior else None,
+                   valor=c.valor_repasse, nivel=1, grupo="emendas", pai=centro)  # fmt: skip
+        g.aresta(centro, hub, "hub", c.valor_repasse)
+
+    # onde e quem executa o convênio
+    hub_local = g.no("hub:local", tipo="hub", rotulo="Onde e quem executa",
+                     detalhe=c.endereco, nivel=1, grupo="gastos", pai=centro)  # fmt: skip
+    g.aresta(centro, hub_local, "hub")
+    if c.municipio_codigo_ibge:
+        rotulo = " - ".join(x for x in (_nome(c.municipio_nome), c.uf) if x)
+        no = g.no(f"municipio:{c.municipio_codigo_ibge}", tipo="municipio", rotulo=rotulo,
+                  detalhe="local da obra", nivel=2, grupo="gastos", pai=hub_local,
+                  chave=str(c.municipio_codigo_ibge))  # fmt: skip
+        g.aresta(hub_local, no, "local")
+    if c.proponente_cnpj:
+        no = g.no(f"doc:{c.proponente_cnpj}", tipo="favorecido", rotulo=_nome(c.proponente_nome),
+                  detalhe="convenente (executa o convênio)", valor=c.valor_desembolsado,
+                  nivel=2, grupo="gastos", pai=hub_local, chave=c.proponente_cnpj)  # fmt: skip
+        g.aresta(hub_local, no, "recebimento", c.valor_desembolsado)
+
+    # quem executou: contratado (licitação) e pago (conta do convênio), por CNPJ
+    F2 = ConvenioFornecedor
+    empresas: dict[str, dict] = {}
+    for doc, nome, valor in (
+        await session.execute(
+            select(K.fornecedor_documento, func.max(K.fornecedor_nome), func.sum(K.valor))
+            .where(K.convenio_numero == numero, func.length(K.fornecedor_documento) == 14)
+            .group_by(K.fornecedor_documento)
+        )
+    ).all():
+        empresas[doc] = {"nome": nome, "contratado": valor, "pago": ZERO}
+    for doc, nome, valor in (
+        await session.execute(
+            select(F2.documento, F2.nome, F2.valor).where(
+                F2.convenio_numero == numero, F2.documento.is_not(None)
+            )
+        )
+    ).all():
+        e = empresas.setdefault(doc, {"nome": nome, "contratado": ZERO, "pago": ZERO})
+        e["pago"] += valor
+    expandiveis: list[tuple[str, str]] = []
+    if empresas:
+        pago_total = sum((e["pago"] for e in empresas.values()), ZERO)
+        hub_exec = g.no("hub:execucao", tipo="hub", rotulo="Quem executou",
+                        detalhe="empresas contratadas e pagas", valor=pago_total or None,
+                        nivel=1, grupo="obras", pai=centro)  # fmt: skip
+        g.aresta(centro, hub_exec, "hub", pago_total or None)
+        top = sorted(
+            empresas.items(), key=lambda kv: max(kv[1]["contratado"], kv[1]["pago"]), reverse=True
+        )[:limite]
+        for doc, e in top:
+            partes = [
+                f"contratado {_brl(e['contratado'])}" if e["contratado"] else None,
+                f"pago {_brl(e['pago'])}" if e["pago"] else None,
+            ]
+            valor = e["pago"] or e["contratado"]
+            no = g.no(f"doc:{doc}", tipo="fornecedor", rotulo=_nome(e["nome"]),
+                      detalhe=" · ".join(x for x in partes if x) or None, valor=valor,
+                      nivel=2, grupo="obras", pai=hub_exec, chave=doc)  # fmt: skip
+            g.aresta(hub_exec, no, "contrato", valor)
+            expandiveis.append((no, doc))
+
+    # outras obras das mesmas empreiteiras
+    for no_id, doc in expandiveis[:3]:
+        for outra in await session.scalars(
+            select(C)
+            .where(
+                C.numero != numero,
+                C.numero.in_(select(K.convenio_numero).where(K.fornecedor_documento == doc)),
+            )
+            .order_by(C.valor_global.desc())
+            .limit(3)
+        ):
+            if f"obra:{outra.numero}" not in g.nos:
+                g.aresta(no_id, _no_obra(g, outra, no_id, "conexoes"), "contrato")
 
     await _partidos_dos_politicos(session, g)
     await _rotular_politicos(session, g)

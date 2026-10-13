@@ -7,6 +7,7 @@ from fastapi.responses import RedirectResponse
 
 from ouroboros import __version__
 from ouroboros.api.routers import (
+    alertas,
     candidaturas,
     despesas,
     emendas,
@@ -16,8 +17,10 @@ from ouroboros.api.routers import (
     grafo,
     health,
     matches,
+    obras,
     partidos,
     politicos,
+    presidencia,
     stats,
 )
 from ouroboros.core.db import get_engine
@@ -60,6 +63,9 @@ def create_app() -> FastAPI:
         politicos,
         despesas,
         emendas,
+        obras,
+        presidencia,
+        alertas,
         grafo,
         candidaturas,
         partidos,

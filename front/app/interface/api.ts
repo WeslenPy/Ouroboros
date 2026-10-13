@@ -373,7 +373,8 @@ export type GrafoTipo =
   | "municipio"
   | "favorecido"
   | "autor"
-export type GrafoGrupo = "centro" | "carreira" | "gastos" | "emendas" | "conexoes"
+  | "obra"
+export type GrafoGrupo = "centro" | "carreira" | "gastos" | "emendas" | "obras" | "conexoes"
 
 export interface GrafoNo {
   id: string
@@ -400,4 +401,319 @@ export interface Grafo {
   centro: string
   nos: GrafoNo[]
   arestas: GrafoAresta[]
+}
+
+// alertas (análise de indícios)
+export type Severidade = "alta" | "media" | "baixa"
+export const SEVERIDADES: Severidade[] = ["alta", "media", "baixa"]
+
+export interface AlertaDocumento {
+  url?: string | null
+  despesa_id?: number
+  politico_id?: number | null
+  parlamentar?: string
+  ano?: number
+  mes?: number
+  data_emissao?: string
+  valor?: number
+  fornecedor?: string | null
+  categoria?: string
+}
+
+export interface AlertaOut {
+  id: number
+  detector: string
+  severidade: Severidade
+  score: number
+  peso: number
+  politico_id: number | null
+  politico_nome: string | null
+  ano_inicio: number | null
+  ano_fim: number | null
+  entidade_documento: string | null
+  entidade_nome: string | null
+  valor: Decimal | null
+  titulo: string
+  descricao: string
+  evidencias: {
+    metricas?: Record<string, unknown>
+    documentos?: AlertaDocumento[]
+    emendas?: string[]
+    [k: string]: unknown
+  }
+  gerado_em: string
+}
+
+export interface DetectorOut {
+  codigo: string
+  titulo: string
+  area: "gabinete" | "emendas" | "eleicoes"
+  peso: number
+  metodologia: string
+  alertas: number
+  alta: number
+  media: number
+  baixa: number
+}
+
+export interface Detectores {
+  aviso: string
+  gerado_em: string | null
+  detectores: DetectorOut[]
+}
+
+export interface RiscoPolitico {
+  politico_id: number
+  nome: string
+  foto_id: number | null
+  partido: string | null
+  uf: string | null
+  risco: number
+  alertas: number
+  alertas_alta: number
+  valor: Decimal
+  detectores: { detector: string; score: number; alertas: number }[]
+}
+
+export interface Ranking {
+  aviso: string
+  items: RiscoPolitico[]
+}
+
+// Obras e convênios (Transferegov)
+export interface ObraOut {
+  numero: number
+  ano: number
+  situacao: string | null
+  modalidade: string | null
+  orgao_superior: string | null
+  proponente_cnpj: string | null
+  proponente_nome: string | null
+  uf: string | null
+  municipio_codigo_ibge: number | null
+  municipio_nome: string | null
+  objeto: string | null
+  obra_nome: string | null
+  obra_id: string | null
+  endereco: string | null
+  cep: string | null
+  latitude: Decimal | null
+  longitude: Decimal | null
+  inicio_vigencia: string | null
+  fim_vigencia: string | null
+  inicio_obra: string | null
+  ultima_medicao: string | null
+  dias_sem_medicao: number | null
+  percentual_execucao: Decimal | null
+  valor_global: Decimal
+  valor_repasse: Decimal
+  valor_desembolsado: Decimal
+  valor_executado: Decimal | null
+}
+
+export interface ObraEmendaOut {
+  emenda_codigo: string | null
+  tipo: string | null
+  parlamentar_nome: string
+  politico_id: number | null
+  politico_nome: string | null
+  impositiva: boolean | null
+  valor_repasse: Decimal
+}
+
+export interface ObraMetaOut {
+  numero: number | null
+  descricao: string | null
+  data_inicio: string | null
+  data_fim: string | null
+  municipio_nome: string | null
+  uf: string | null
+  endereco: string | null
+  cep: string | null
+  quantidade: Decimal | null
+  unidade: string | null
+  valor: Decimal
+}
+
+export interface ObraContratoOut {
+  numero: string | null
+  modalidade_licitacao: string | null
+  objeto: string | null
+  tipo_aquisicao: string | null
+  fornecedor_documento: string | null
+  fornecedor_nome: string | null
+  data_assinatura: string | null
+  inicio_vigencia: string | null
+  fim_vigencia: string | null
+  valor: Decimal
+}
+
+export interface ObraFornecedorOut {
+  documento: string | null
+  nome: string
+  pagamentos: number
+  primeiro_pagamento: string | null
+  ultimo_pagamento: string | null
+  valor: Decimal
+}
+
+export interface ObraDetalhe extends ObraOut {
+  subsituacao: string | null
+  orgao: string | null
+  natureza_juridica: string | null
+  data_proposta: string | null
+  data_assinatura: string | null
+  data_publicacao: string | null
+  fim_vigencia_original: string | null
+  limite_prestacao_contas: string | null
+  prorrogacoes: number | null
+  aditivos: number | null
+  valor_contrapartida: Decimal
+  valor_empenhado: Decimal
+  valor_saldo_conta: Decimal | null
+  valor_pago_fornecedores: Decimal
+  emendas: ObraEmendaOut[]
+  metas: ObraMetaOut[]
+  desembolsos: { data: string | null; documento: string | null; valor: Decimal }[]
+  contratos: ObraContratoOut[]
+  fornecedores: ObraFornecedorOut[]
+  link_transferegov: string
+  link_obrasgov: string | null
+  fonte_url: string
+}
+
+export interface TotalObras {
+  chave: string | null
+  rotulo: string | null
+  quantidade: number
+  valor_global: Decimal
+  valor_desembolsado: Decimal
+}
+
+export interface ResumoObras {
+  quantidade: number
+  valor_global: Decimal
+  valor_repasse: Decimal
+  valor_desembolsado: Decimal
+  com_localizacao: number
+  paradas: number
+  por_situacao: TotalObras[]
+  por_uf: TotalObras[]
+  por_ano: TotalObras[]
+  por_orgao: TotalObras[]
+  maiores_autores: TotalObras[]
+  maiores_fornecedores: TotalObras[]
+}
+
+export interface PontoObra {
+  numero: number
+  latitude: Decimal
+  longitude: Decimal
+  rotulo: string
+  situacao: string | null
+  percentual_execucao: Decimal | null
+  valor_global: Decimal
+}
+
+export interface TransferenciaEspecialOut {
+  id: number
+  codigo: string
+  ano: number
+  situacao: string | null
+  emenda_codigo: string | null
+  parlamentar_nome: string
+  politico_id: number | null
+  beneficiario_cnpj: string | null
+  beneficiario_nome: string
+  uf: string | null
+  municipio_codigo_ibge: number | null
+  areas: string | null
+  valor_custeio: Decimal
+  valor_investimento: Decimal
+  valor_pago: Decimal
+  executores: {
+    cnpj: string | null
+    nome: string
+    objeto: string | null
+    areas: string[]
+    valor_custeio: Decimal
+    valor_investimento: Decimal
+  }[]
+}
+
+export interface EmendaDetalhe {
+  codigo: string
+  ano: number
+  tipo: string
+  autor_nome: string
+  politico_id: number | null
+  politico_nome: string | null
+  empenhado: Decimal
+  pago: Decimal
+  destinos: EmendaOut[]
+  favorecidos: TotalChave[]
+  obras: ObraOut[]
+  transferencias_especiais: TransferenciaEspecialOut[]
+}
+
+// presidência (cartão de pagamento)
+export interface GastoPresidenciaOut {
+  id: number
+  data: string | null
+  ano: number
+  mes: number
+  unidade_gestora: string | null
+  portador: string | null
+  favorecido_documento: string | null
+  favorecido_nome: string | null
+  valor: Decimal
+  tipo: "credito" | "saque"
+  categoria: string | null
+  transacao: string | null
+  sigiloso: boolean
+  classificacao: string | null
+  presidente_id: number | null
+  presidente: string | null
+  origem: Origem
+}
+
+export interface MandatoPresidente {
+  id_externo: string
+  inicio: string
+  fim: string
+  condicao: string | null
+  partidos: string[]
+  dias: number
+  total: Decimal
+  quantidade: number
+  saques: Decimal
+  sigiloso: Decimal
+  por_dia: Decimal
+}
+
+export interface PresidenteGastos {
+  politico_id: number
+  nome: string
+  foto_id: number | null
+  total: Decimal
+  quantidade: number
+  mandatos: MandatoPresidente[]
+}
+
+export interface TotalRotulo {
+  chave: string | null
+  total: Decimal
+  quantidade: number
+}
+
+export interface ResumoPresidencia {
+  aviso: string
+  total: Decimal
+  quantidade: number
+  saques: Decimal
+  sigiloso: Decimal
+  por_ano: TotalRotulo[]
+  por_categoria: TotalRotulo[]
+  por_unidade: TotalRotulo[]
+  maiores_favorecidos: TotalRotulo[]
 }

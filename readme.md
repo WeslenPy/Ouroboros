@@ -17,7 +17,7 @@ atuação legislativa, sanções e vínculos com fornecedores — tudo ligado a 
 - [ ] 4. Atuação: proposições, votações, presença
 - [ ] 5. Estados: SICONFI, ALEs, TCEs, PNCP
 - [ ] 6. Municípios: TSE, SICONFI, PNCP, Querido Diário, TCEs/TCMs, câmaras das capitais
-- [ ] 7. Análises: alertas e rankings
+- [~] 7. Análises: alertas e ranking de risco (`/v1/alertas`, 10 detectores) feitos; faltam cruzamentos com CNPJ, campanha e sanções
 
 ## Plano
 

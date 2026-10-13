@@ -358,13 +358,13 @@ class GrafoNo(BaseModel):
     id: str = Field(description="tipo:chave, único no grafo")
     tipo: str = Field(
         description="politico, hub, partido, cargo, eleicao, categoria, fornecedor, area, "
-        "municipio, favorecido"
+        "municipio, favorecido, autor, obra"
     )
     rotulo: str
     detalhe: str | None = None
     valor: Decimal | None = None
     nivel: int = Field(description="Distância do centro (0 = centro)")
-    grupo: str = Field(description="carreira, gastos, emendas, conexoes")
+    grupo: str = Field(description="carreira, gastos, emendas, obras, conexoes")
     pai: str | None = Field(None, description="Nó de onde este se ramifica (para o layout)")
     imagem: str | None = None
     chave: str | None = Field(None, description="ID para abrir o nó como centro de outro grafo")
@@ -376,7 +376,7 @@ class GrafoAresta(BaseModel):
     destino: str
     tipo: str = Field(
         description="filiacao, mandato, candidatura, gasto, pagamento, emenda, destino, "
-        "recebimento, conexao"
+        "recebimento, conexao, obra, contrato, local"
     )
     valor: Decimal | None = None
 
@@ -385,3 +385,333 @@ class Grafo(BaseModel):
     centro: str
     nos: list[GrafoNo]
     arestas: list[GrafoAresta]
+
+
+AVISO_ALERTAS = (
+    "Alertas são indícios estatísticos ou cruzamentos de dados públicos, não acusação nem prova "
+    "de irregularidade. Cada um traz a metodologia e os documentos oficiais para conferência."
+)
+
+
+class AlertaOut(_Out):
+    id: int
+    detector: str
+    severidade: str = Field(description="alta, media, baixa")
+    score: float = Field(description="0-100: força do indício dentro do detector")
+    peso: float = Field(description="0-1: confiança no detector")
+    politico_id: int | None
+    politico_nome: str | None = None
+    ano_inicio: int | None
+    ano_fim: int | None
+    entidade_documento: str | None = Field(description="CNPJ (ou CPF mascarado) envolvido")
+    entidade_nome: str | None
+    valor: Decimal | None = Field(description="Dinheiro envolvido no achado")
+    titulo: str
+    descricao: str
+    evidencias: dict = Field(description="Métricas que dispararam o alerta e documentos")
+    gerado_em: datetime
+
+
+class DetectorOut(BaseModel):
+    codigo: str
+    titulo: str
+    area: str = Field(description="gabinete, emendas, eleicoes")
+    peso: float
+    metodologia: str
+    alertas: int
+    alta: int
+    media: int
+    baixa: int
+
+
+class DetectorRisco(BaseModel):
+    detector: str
+    score: float
+    alertas: int
+
+
+class RiscoPolitico(BaseModel):
+    politico_id: int
+    nome: str
+    foto_id: int | None = None
+    partido: str | None = None
+    uf: str | None = None
+    risco: float = Field(description="0-100: combinação (noisy-OR) dos detectores")
+    alertas: int
+    alertas_alta: int
+    valor: Decimal = Field(description="Soma do dinheiro envolvido nos alertas")
+    detectores: list[DetectorRisco]
+
+
+class Detectores(BaseModel):
+    aviso: str = AVISO_ALERTAS
+    gerado_em: datetime | None
+    detectores: list[DetectorOut]
+
+
+class Ranking(BaseModel):
+    aviso: str = AVISO_ALERTAS
+    items: list[RiscoPolitico]
+
+
+# --------------------------------------------------------------------------- obras / convênios
+
+
+class ObraOut(_Out):
+    """Convênio do Transferegov visto como obra: onde, quando, quanto e em que pé está."""
+
+    numero: int = Field(description="Número do convênio (o mesmo do Portal da Transparência)")
+    ano: int = Field(description="Ano da proposta")
+    situacao: str | None
+    modalidade: str | None
+    orgao_superior: str | None = Field(description="Ministério que repassa o dinheiro")
+    proponente_cnpj: str | None = Field(description="Quem executa: prefeitura, estado, entidade")
+    proponente_nome: str | None
+    uf: str | None
+    municipio_codigo_ibge: int | None
+    municipio_nome: str | None
+    objeto: str | None
+    obra_nome: str | None
+    obra_id: str | None = Field(description="ID da obra no Obrasgov (CIPI)")
+    endereco: str | None
+    cep: str | None
+    latitude: Decimal | None
+    longitude: Decimal | None
+    inicio_vigencia: date | None
+    fim_vigencia: date | None
+    inicio_obra: date | None = Field(description="Início da obra informado na medição")
+    ultima_medicao: date | None
+    dias_sem_medicao: int | None
+    percentual_execucao: Decimal | None = Field(description="Execução física informada (%)")
+    valor_global: Decimal
+    valor_repasse: Decimal = Field(description="Parte da União")
+    valor_desembolsado: Decimal = Field(description="Já liberado para a conta do convênio")
+    valor_executado: Decimal | None
+
+
+class ObraEmendaOut(_Out):
+    emenda_codigo: str | None
+    tipo: str | None = Field(description="INDIVIDUAL, BANCADA, COMISSAO, RELATOR GERAL")
+    parlamentar_nome: str
+    politico_id: int | None
+    politico_nome: str | None = None
+    impositiva: bool | None
+    valor_repasse: Decimal
+
+
+class ObraMetaOut(_Out):
+    numero: int | None
+    descricao: str | None
+    data_inicio: date | None
+    data_fim: date | None
+    municipio_nome: str | None
+    uf: str | None
+    endereco: str | None
+    cep: str | None
+    quantidade: Decimal | None
+    unidade: str | None
+    valor: Decimal
+
+
+class ObraDesembolsoOut(_Out):
+    data: date | None
+    documento: str | None
+    valor: Decimal
+
+
+class ObraContratoOut(_Out):
+    numero: str | None
+    modalidade_licitacao: str | None
+    objeto: str | None
+    tipo_aquisicao: str | None
+    fornecedor_documento: str | None
+    fornecedor_nome: str | None
+    data_assinatura: date | None
+    inicio_vigencia: date | None
+    fim_vigencia: date | None
+    valor: Decimal
+
+
+class ObraFornecedorOut(_Out):
+    documento: str | None = Field(description="CNPJ; nulo = pessoas físicas somadas")
+    nome: str
+    pagamentos: int
+    primeiro_pagamento: date | None
+    ultimo_pagamento: date | None
+    valor: Decimal
+
+
+class ObraDetalhe(ObraOut):
+    subsituacao: str | None
+    orgao: str | None
+    natureza_juridica: str | None
+    data_proposta: date | None
+    data_assinatura: date | None
+    data_publicacao: date | None
+    fim_vigencia_original: date | None
+    limite_prestacao_contas: date | None
+    prorrogacoes: int | None
+    aditivos: int | None
+    valor_contrapartida: Decimal
+    valor_empenhado: Decimal
+    valor_saldo_conta: Decimal | None
+    valor_pago_fornecedores: Decimal = Field(description="Soma dos pagamentos da conta")
+    emendas: list[ObraEmendaOut]
+    metas: list[ObraMetaOut]
+    desembolsos: list[ObraDesembolsoOut]
+    contratos: list[ObraContratoOut]
+    fornecedores: list[ObraFornecedorOut]
+    link_transferegov: str
+    link_obrasgov: str | None
+    fonte_url: str
+
+
+class TotalObras(BaseModel):
+    chave: str | None
+    rotulo: str | None = None
+    quantidade: int
+    valor_global: Decimal
+    valor_desembolsado: Decimal
+
+
+class ResumoObras(BaseModel):
+    quantidade: int
+    valor_global: Decimal
+    valor_repasse: Decimal
+    valor_desembolsado: Decimal
+    com_localizacao: int
+    paradas: int = Field(
+        description="Obras acompanhadas, abaixo de 100%, sem medição há 180+ dias ou com "
+        "vigência vencida em execução"
+    )
+    por_situacao: list[TotalObras]
+    por_uf: list[TotalObras]
+    por_ano: list[TotalObras]
+    por_orgao: list[TotalObras]
+    maiores_autores: list[TotalObras] = Field(description="chave = politico_id (ou nome)")
+    maiores_fornecedores: list[TotalObras] = Field(
+        description="chave = CNPJ; valor_global = contratado, valor_desembolsado = pago"
+    )
+
+
+class PontoObra(BaseModel):
+    numero: int
+    latitude: Decimal
+    longitude: Decimal
+    rotulo: str
+    situacao: str | None
+    percentual_execucao: Decimal | None
+    valor_global: Decimal
+
+
+class TransferenciaEspecialExecutorOut(_Out):
+    cnpj: str | None
+    nome: str
+    objeto: str | None
+    areas: list[str]
+    valor_custeio: Decimal
+    valor_investimento: Decimal
+
+
+class TransferenciaEspecialOut(_Out):
+    """Emenda Pix: o dinheiro cai direto no caixa do ente, com um plano do que será feito."""
+
+    id: int
+    codigo: str
+    ano: int
+    situacao: str | None
+    emenda_codigo: str | None
+    parlamentar_nome: str
+    politico_id: int | None
+    beneficiario_cnpj: str | None
+    beneficiario_nome: str
+    uf: str | None
+    municipio_codigo_ibge: int | None
+    areas: str | None
+    valor_custeio: Decimal
+    valor_investimento: Decimal
+    valor_pago: Decimal = Decimal("0")
+    executores: list[TransferenciaEspecialExecutorOut] = []
+
+
+class EmendaDetalhe(BaseModel):
+    """Uma emenda de ponta a ponta: destinos, quem recebeu e o que virou (convênio/obra ou
+    transferência especial)."""
+
+    codigo: str
+    ano: int
+    tipo: str
+    autor_nome: str
+    politico_id: int | None
+    politico_nome: str | None
+    empenhado: Decimal
+    pago: Decimal
+    destinos: list[EmendaOut]
+    favorecidos: list[TotalChave] = Field(description="chave = documento do favorecido")
+    obras: list[ObraOut]
+    transferencias_especiais: list[TransferenciaEspecialOut]
+
+
+class GastoPresidenciaOut(_Out):
+    id: int
+    data: date | None = Field(description="Nula quando o lançamento ainda é sigiloso")
+    ano: int
+    mes: int
+    unidade_gestora: str | None
+    portador: str | None = Field(description="CPF mascarado do servidor portador do cartão")
+    favorecido_documento: str | None
+    favorecido_nome: str | None
+    valor: Decimal
+    tipo: str = Field(description="credito (compra) ou saque (dinheiro vivo)")
+    categoria: str | None
+    transacao: str | None
+    sigiloso: bool = Field(description="2003-2022: era classificado. 2023+: ainda sigiloso")
+    classificacao: str | None = Field(description="CDIC da informação classificada")
+    presidente_id: int | None = None
+    presidente: str | None = None
+    origem: Origem
+
+
+class MandatoPresidente(BaseModel):
+    id_externo: str
+    inicio: date
+    fim: date
+    condicao: str | None
+    partidos: list[str]
+    dias: int = Field(description="Dias de exercício até hoje")
+    total: Decimal
+    quantidade: int
+    saques: Decimal
+    sigiloso: Decimal = Field(description="Valor ainda sem detalhe (só 2023+)")
+    por_dia: Decimal = Field(description="Total / dias de exercício: compara períodos desiguais")
+
+
+class PresidenteGastos(BaseModel):
+    politico_id: int
+    nome: str
+    foto_id: int | None
+    total: Decimal
+    quantidade: int
+    mandatos: list[MandatoPresidente]
+
+
+class TotalRotulo(BaseModel):
+    chave: str | None
+    total: Decimal
+    quantidade: int
+
+
+class ResumoPresidencia(BaseModel):
+    aviso: str = (
+        "Valores nominais (sem correção pela inflação). 2003-2022: planilha da Casa Civil com "
+        "os gastos antes sigilosos; 2023 em diante: Portal da Transparência, onde parte ainda é "
+        "sigilosa. O cartão é usado por servidores da Presidência, não pelo presidente em pessoa."
+    )
+    total: Decimal
+    quantidade: int
+    saques: Decimal
+    sigiloso: Decimal
+    por_ano: list[TotalRotulo]
+    por_categoria: list[TotalRotulo]
+    por_unidade: list[TotalRotulo]
+    maiores_favorecidos: list[TotalRotulo] = Field(description="Por nome: a fonte perdeu CNPJs")
