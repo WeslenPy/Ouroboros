@@ -1,0 +1,70 @@
+name: ouroboros
+
+x-back: &back
+  build: ./back
+  env_file:
+    - path: ./back/.env
+      required: false
+  environment:
+    OUROBOROS_DATABASE_URL: postgresql+asyncpg://ouroboros:ouroboros@db:5432/ouroboros
+    OUROBOROS_RAW_DIR: /data/raw
+    OUROBOROS_FOTOS_DIR: /data/fotos
+  volumes:
+    - ./data:/data
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ouroboros
+      POSTGRES_PASSWORD: ouroboros
+      POSTGRES_DB: ouroboros
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ouroboros"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    <<: *back
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  api:
+    <<: *back
+    command: ["uvicorn", "ouroboros.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  dagster:
+    <<: *back
+    command:
+      - sh
+      - -c
+      - mkdir -p "$$DAGSTER_HOME" && exec dagster dev -h 0.0.0.0 -p 3000 -m ouroboros.pipelines.definitions
+    environment:
+      OUROBOROS_DATABASE_URL: postgresql+asyncpg://ouroboros:ouroboros@db:5432/ouroboros
+      OUROBOROS_RAW_DIR: /data/raw
+      OUROBOROS_FOTOS_DIR: /data/fotos
+      DAGSTER_HOME: /data/dagster
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

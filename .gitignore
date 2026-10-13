@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dagster/
+node_modules/
+
+# dados baixados das fontes (reprodutíveis pela ingestão)
+data/*
+!data/.gitkeep

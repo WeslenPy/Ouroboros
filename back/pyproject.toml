@@ -1,0 +1,61 @@
+[project]
+name = "ouroboros"
+version = "0.1.0"
+description = "API unificada de dados da política brasileira: mandatos, gastos, emendas, campanhas e atuação."
+authors = [{ name = "weslen", email = "weslenjhony@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "httpx>=0.27",
+    "tenacity>=8.5",
+    "loguru>=0.7",
+    "dagster>=1.9",
+    "dagster-webserver>=1.9",
+    "rapidfuzz (>=3.9)",
+    "pillow (>=10.4)",
+]
+
+[project.scripts]
+ouroboros = "ouroboros.cli:main"
+
+[tool.poetry]
+packages = [{ include = "ouroboros", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3"
+pytest-asyncio = ">=0.24"
+respx = ">=0.21"
+ruff = ">=0.6"
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.dagster]
+module_name = "ouroboros.pipelines.definitions"
+
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Query", "fastapi.Depends", "fastapi.Path"]
