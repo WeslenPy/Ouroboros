@@ -6,7 +6,7 @@ atuação legislativa, sanções e vínculos com fornecedores — tudo ligado a 
 
 - `back/` — API FastAPI + ingestão Dagster (ver `back/README.md` para rodar)
 - `data/` — arquivos brutos baixados das fontes (não versionado)
-- `front/` — reservado
+- `front/` — dashboard React (stack do WADashboard, sem auth): `docker compose up front` → http://localhost:5173 (ver `front/README.md`)
 
 ## Status das fases
 
@@ -26,7 +26,7 @@ Dados públicos sobre políticos estão espalhados em dezenas de fontes (Câmara
 
 Diretório `Documents/Projects/Ouroboros` está vazio (só `readme.md` vazio) — projeto greenfield.
 
-Decisões do usuário: **Python + FastAPI**, escopo **federal + estados + municípios** (entregue em fases, federal primeiro), **só API + docs OpenAPI** (sem frontend).
+Decisões do usuário: **Python + FastAPI**, escopo **federal + estados + municípios** (entregue em fases, federal primeiro), **só API + docs OpenAPI** (sem frontend). Revisto depois: dashboard somente leitura em `front/` consumindo a API.
 
 ### Stack
 - Python 3.12, Poetry, FastAPI, pydantic-settings, loguru, SQLAlchemy 2 async + Alembic (padrão dos outros projetos do usuário).

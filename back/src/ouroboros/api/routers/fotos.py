@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 
 from ouroboros.api.deps import Session
 from ouroboros.core.media_store import MediaStore
@@ -10,14 +10,16 @@ router = APIRouter(prefix="/fotos", tags=["fotos"])
 
 @router.get(
     "/{foto_id}",
-    summary="Arquivo da foto",
+    summary="Arquivo da foto (fotos só com URL redirecionam para a fonte)",
     response_class=FileResponse,
-    responses={200: {"content": {"image/jpeg": {}}}, 304: {}, 404: {}},
+    responses={200: {"content": {"image/jpeg": {}}}, 304: {}, 307: {}, 404: {}},
 )
 async def obter_foto(foto_id: int, request: Request, session: Session) -> Response:
     foto = await session.get(PoliticoFoto, foto_id)
     if foto is None:
         raise HTTPException(status_code=404, detail="foto não encontrada")
+    if not foto.armazenada:
+        return RedirectResponse(foto.url_origem, status_code=307)
     path = MediaStore().path_for(foto.sha256, foto.extensao)
     if not path.exists():
         raise HTTPException(status_code=404, detail="arquivo da foto não está disponível")

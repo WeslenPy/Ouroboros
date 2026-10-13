@@ -1,4 +1,3 @@
-from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -9,7 +8,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from ouroboros.api.deps import Paging, Session
 from ouroboros.api.export import page_or_csv
 from ouroboros.api.pagination import Page, encode_cursor
-from ouroboros.api.queries import FiltroDespesa, resumo_despesas
+from ouroboros.api.queries import FiltroDespesa, mandato_em_exercicio, resumo_despesas
 from ouroboros.api.schemas import (
     CandidaturaOut,
     DespesaOut,
@@ -96,8 +95,7 @@ async def listar_politicos(
     if partido:
         filtros_mandato.append(Mandato.partidos.any(partido.upper()))
     if em_exercicio:
-        hoje = date.today()
-        filtros_mandato += [Mandato.inicio <= hoje, or_(Mandato.fim.is_(None), Mandato.fim >= hoje)]
+        filtros_mandato += mandato_em_exercicio()
     if filtros_mandato or com_mandato:
         stmt = stmt.where(exists().where(Mandato.politico_id == Politico.id, *filtros_mandato))
     if paging.after is not None:
@@ -162,15 +160,16 @@ async def obter_politico(politico_id: int, session: Session) -> PoliticoDetalhe:
 
 @router.get(
     "/{politico_id}/foto",
-    summary="Foto principal (redireciona para /v1/fotos/{id})",
+    summary="Foto principal (redireciona para a URL da foto)",
     response_class=RedirectResponse,
     responses={307: {"description": "Redireciona para o arquivo"}, 404: {}},
 )
 async def foto_principal(politico_id: int, session: Session) -> RedirectResponse:
     politico = await _politico_ou_404(session, politico_id)
-    if politico.foto_id is None:
+    foto = await session.get(PoliticoFoto, politico.foto_id) if politico.foto_id else None
+    if foto is None:
         raise HTTPException(status_code=404, detail="político sem foto")
-    return RedirectResponse(f"/v1/fotos/{politico.foto_id}", status_code=307)
+    return RedirectResponse(FotoOut.de(foto).url, status_code=307)
 
 
 @router.get(

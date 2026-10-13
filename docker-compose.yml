@@ -66,5 +66,17 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  front:
+    build:
+      context: ./front
+      args:
+        # o navegador fala direto com a API/Dagster publicados no host
+        VITE_API_URL: http://localhost:8000
+        VITE_DAGSTER_URL: http://localhost:3000
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
 volumes:
   pgdata:

@@ -53,7 +53,17 @@ def create_app() -> FastAPI:
         expose_headers=["X-Next-Cursor", "Content-Disposition"],
     )
     app.include_router(health.router)
-    for module in (stats, politicos, despesas, candidaturas, partidos, fotos, entes, fontes, matches):
+    for module in (
+        stats,
+        politicos,
+        despesas,
+        candidaturas,
+        partidos,
+        fotos,
+        entes,
+        fontes,
+        matches,
+    ):
         app.include_router(module.router, prefix="/v1")
 
     @app.get("/", include_in_schema=False)

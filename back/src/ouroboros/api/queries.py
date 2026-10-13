@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from fastapi import Query
-from sqlalchemy import Select, desc, func, select
+from sqlalchemy import Select, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouroboros.api.schemas import (
@@ -15,6 +15,13 @@ from ouroboros.api.schemas import (
     TotalMes,
 )
 from ouroboros.models.despesa import DespesaGabinete
+from ouroboros.models.mandato import Mandato
+
+
+def mandato_em_exercicio(hoje: date | None = None) -> list:
+    """Condições de mandato em curso na data (padrão: hoje)."""
+    hoje = hoje or date.today()
+    return [Mandato.inicio <= hoje, or_(Mandato.fim.is_(None), Mandato.fim >= hoje)]
 
 
 @dataclass
@@ -27,7 +34,7 @@ class FiltroDespesa:
     fornecedor: str | None = Query(
         None, description="CNPJ (só dígitos) ou trecho do nome do fornecedor"
     )
-    politico_id: int | None = Query(None, description="Só despesas ligadas a este político")
+    politico: int | None = Query(None, description="ID do político dono das despesas")
     data_inicio: date | None = Query(None, description="Data de emissão a partir de (inclusive)")
     data_fim: date | None = Query(None, description="Data de emissão até (inclusive)")
 
@@ -35,8 +42,8 @@ class FiltroDespesa:
         d = DespesaGabinete
         if politico_id is not None:
             stmt = stmt.where(d.politico_id == politico_id)
-        if self.politico_id is not None:
-            stmt = stmt.where(d.politico_id == self.politico_id)
+        if self.politico is not None:
+            stmt = stmt.where(d.politico_id == self.politico)
         if self.data_inicio:
             stmt = stmt.where(d.data_emissao >= self.data_inicio)
         if self.data_fim:

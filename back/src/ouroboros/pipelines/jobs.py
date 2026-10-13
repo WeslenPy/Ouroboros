@@ -12,6 +12,7 @@ from ouroboros.connectors.tse import TseCandidatosConnector
 from ouroboros.core.db import get_engine
 from ouroboros.core.settings import get_settings
 from ouroboros.pipelines.fotos import coletar_fotos_casa, coletar_fotos_tse
+from ouroboros.pipelines.logos import coletar_logos_wikidata
 from ouroboros.pipelines.loaders import (
     load_candidaturas,
     load_despesas,
@@ -101,6 +102,12 @@ JOBS: dict[str, Job] = {
             "Fotos de todos os candidatos (ZIP por UF do TSE)",
             coletar_fotos_tse,
             lambda: _s(get_settings().tse_anos),
+        ),
+        Job(
+            "partidos_logos",
+            "Logos dos partidos (Wikidata + Wikimedia Commons)",
+            coletar_logos_wikidata,
+            lambda: ["atual"],
         ),
     ]
 }

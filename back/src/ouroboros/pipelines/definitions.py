@@ -20,6 +20,7 @@ GRUPO = {
     "senado_ceaps": "despesas",
     "fotos_parlamentares": "fotos",
     "tse_fotos": "fotos",
+    "partidos_logos": "fotos",
 }
 
 

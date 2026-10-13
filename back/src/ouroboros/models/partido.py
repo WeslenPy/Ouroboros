@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, SmallInteger, String
+from sqlalchemy import Boolean, ForeignKey, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ouroboros.models.base import Base, LineageMixin
@@ -14,3 +14,7 @@ class Partido(LineageMixin, Base):
     nome: Mapped[str] = mapped_column(String(200))
     numero_tse: Mapped[int | None] = mapped_column(SmallInteger, unique=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # logo principal escolhida entre partido_logo (ver pipelines/logos.py)
+    logo_id: Mapped[int | None] = mapped_column(
+        ForeignKey("partido_logo.id", ondelete="SET NULL", use_alter=True)
+    )

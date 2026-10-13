@@ -65,18 +65,21 @@ class MandatoOut(_Out):
 
 class FotoOut(_Out):
     id: int
-    url: str = Field(description="Arquivo servido por esta API")
+    url: str = Field(
+        description="URL para exibir: link oficial da fonte (Câmara, Senado) ou arquivo servido "
+        "por esta API (/v1/fotos/{id}, fotos do TSE)"
+    )
     origem: str
     ano: int | None
-    largura: int
-    altura: int
+    largura: int | None = Field(description="Só para fotos armazenadas")
+    altura: int | None
     url_origem: str = Field(description="Onde a foto foi obtida")
 
     @classmethod
     def de(cls, foto) -> "FotoOut":
         return cls(
             id=foto.id,
-            url=f"/v1/fotos/{foto.id}",
+            url=f"/v1/fotos/{foto.id}" if foto.armazenada else foto.url_origem,
             origem=foto.origem,
             ano=foto.ano,
             largura=foto.largura,

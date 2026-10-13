@@ -23,7 +23,7 @@ async def atualizar_fotos_principais(
                 ORDER BY politico_id,
                          ano DESC NULLS LAST,
                          (origem IN ('camara', 'senado')) DESC,
-                         largura::int * altura::int DESC,
+                         largura::int * altura::int DESC NULLS LAST,
                          id DESC
             ) f
             WHERE p.id = f.politico_id AND p.foto_id IS DISTINCT FROM f.id

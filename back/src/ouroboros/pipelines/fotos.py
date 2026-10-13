@@ -5,9 +5,13 @@ Fontes:
 - Senado: https://www.senado.leg.br/senadores/img/fotos-oficiais/senador{codigo}.jpg
 - TSE: um ZIP por UF e eleição com a foto de todo candidato, arquivo `[F]{UF}{SQ}_div.jpg`
 
+Câmara e Senado servem a imagem por URL estável: guardamos só a URL (um HEAD confirma que
+existe) e o front carrega direto da fonte. O TSE não tem link individual utilizável (o
+DivulgaCandContas responde 403 fora do navegador), então as fotos de candidatos são extraídas
+do ZIP oficial e servidas por esta API. ZIP sem mudança (ETag) não é baixado de novo.
+
 As fotos são ligadas pelos identificadores que a resolução de identidade já gravou
-(id Câmara, código Senado, SQ_CANDIDATO), então este job roda depois das cargas de pessoas.
-Tudo é incremental por GET condicional (ETag): rodar de novo só baixa o que mudou.
+(id Câmara, código Senado, SQ_CANDIDATO), então estes jobs rodam depois das cargas de pessoas.
 """
 
 import asyncio
@@ -20,7 +24,7 @@ from datetime import date
 
 import httpx
 from loguru import logger
-from sqlalchemy import String, and_, cast, func, select
+from sqlalchemy import String, and_, cast, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,6 +49,8 @@ TSE_FOTOS_URL = (
 _ARQUIVO_TSE = re.compile(r"^F?[A-Z]{2}(\d+)_div\.(?:jpe?g|png)$", re.IGNORECASE)
 _LOTE = 500
 _CONCORRENCIA = 8
+# CDN do TSE: arquivos grandes, poucas requisições; espaçamento educado
+TSE_CHAMADAS_POR_MINUTO = 30
 
 
 @dataclass(frozen=True)
@@ -54,13 +60,13 @@ class FotoColetada:
     politico_id: int
     ano: int | None
     url_origem: str
-    imagem: Imagem
-    etag: str | None
+    imagem: Imagem | None = None  # None: só URL, arquivo não baixado
 
 
 async def _gravar(session: AsyncSession, fotos: Sequence[FotoColetada]) -> None:
     if not fotos:
         return
+    arquivo = ("sha256", "extensao", "content_type", "tamanho_bytes", "largura", "altura")
     values = [
         {
             "origem": f.origem,
@@ -68,13 +74,7 @@ async def _gravar(session: AsyncSession, fotos: Sequence[FotoColetada]) -> None:
             "politico_id": f.politico_id,
             "ano": f.ano,
             "url_origem": f.url_origem,
-            "sha256": f.imagem.sha256,
-            "extensao": f.imagem.extensao,
-            "content_type": f.imagem.content_type,
-            "tamanho_bytes": f.imagem.tamanho_bytes,
-            "largura": f.imagem.largura,
-            "altura": f.imagem.altura,
-            "etag": f.etag,
+            **{c: getattr(f.imagem, c) if f.imagem else None for c in arquivo},
         }
         for f in fotos
     ]
@@ -91,9 +91,11 @@ async def _gravar(session: AsyncSession, fotos: Sequence[FotoColetada]) -> None:
 
 
 async def coletar_fotos_casa(origem: str) -> int:
-    """Fotos oficiais de quem tem identificador na casa (`camara` ou `senado`)."""
+    """URL da foto oficial de quem tem identificador na casa (`camara` ou `senado`).
+
+    Não baixa a imagem: um HEAD confirma que a URL responde com uma imagem.
+    """
     url_tpl = FOTO_CASA_URL[origem]
-    store = MediaStore()
     sm = get_sessionmaker()
     async with registrar_execucao(origem, "fotos", "atual") as contador:
         async with sm() as s:
@@ -115,66 +117,57 @@ async def coletar_fotos_casa(origem: str) -> int:
                     .group_by(PoliticoIdentificador.id_externo, PoliticoIdentificador.politico_id)
                 )
             ).all()
-            etags = dict(
-                (
-                    await s.execute(
-                        select(PoliticoFoto.id_externo, PoliticoFoto.etag).where(
-                            PoliticoFoto.origem == origem
-                        )
-                    )
-                ).all()
-            )
 
         ano_atual = date.today().year
-        stats = {"nova": 0, "sem_mudanca": 0, "sem_foto": 0, "invalida": 0}
-        coletadas: list[FotoColetada] = []
+        validas: list[FotoColetada] = []
+        sem_foto: list[str] = []
         sem = asyncio.Semaphore(_CONCORRENCIA)
 
-        async def baixar(client: HttpClient, id_externo: str, pid: int, fim: date | None) -> None:
+        async def checar(client: HttpClient, id_externo: str, pid: int, fim: date | None) -> None:
             url = url_tpl.format(id=id_externo)
-            headers = {"If-None-Match": etags[id_externo]} if etags.get(id_externo) else {}
             async with sem:
                 try:
-                    r = await client.get(url, headers=headers)
+                    r = await client.request("HEAD", url)
                 except httpx.HTTPStatusError as exc:
                     if exc.response.status_code in (403, 404):
-                        stats["sem_foto"] += 1
+                        sem_foto.append(id_externo)
                         return
                     raise
-            if r.status_code == 304:
-                stats["sem_mudanca"] += 1
+            if not r.headers.get("content-type", "").startswith("image/"):
+                sem_foto.append(id_externo)
                 return
-            try:
-                imagem = store.save(r.content)
-            except ImagemInvalida:
-                stats["invalida"] += 1
-                return
-            stats["nova"] += 1
-            coletadas.append(
+            validas.append(
                 FotoColetada(
                     origem=origem,
                     id_externo=id_externo,
                     politico_id=pid,
                     ano=min(fim.year, ano_atual) if fim else None,
-                    url_origem=url,
-                    imagem=imagem,
-                    etag=r.headers.get("etag"),
+                    url_origem=str(r.url),  # já depois de redirects (http -> https)
                 )
             )
 
-        async with HttpClient(max_calls_per_minute=300) as client:
-            for start in range(0, len(alvos), _LOTE):
-                await asyncio.gather(*(baixar(client, *a) for a in alvos[start : start + _LOTE]))
-                async with sm() as s:
-                    await _gravar(s, coletadas)
-                    await s.commit()
-                contador.registros += len(coletadas)
-                coletadas.clear()
+        async with HttpClient(max_calls_per_minute=600) as client:
+            await asyncio.gather(*(checar(client, *a) for a in alvos))
 
         async with sm() as s:
+            for start in range(0, len(validas), _LOTE):
+                await _gravar(s, validas[start : start + _LOTE])
+            if sem_foto:  # foto que sumiu da fonte deixa de ser oferecida
+                await s.execute(
+                    delete(PoliticoFoto).where(
+                        PoliticoFoto.origem == origem, PoliticoFoto.id_externo.in_(sem_foto)
+                    )
+                )
             await atualizar_fotos_principais(s)
             await s.commit()
-        logger.info("fotos {}: {} alvos, {}", origem, len(alvos), stats)
+        contador.registros = len(validas)
+        logger.info(
+            "fotos {}: {} alvos, {} com foto, {} sem foto",
+            origem,
+            len(alvos),
+            len(validas),
+            len(sem_foto),
+        )
     return contador.registros
 
 
@@ -205,7 +198,7 @@ async def coletar_fotos_tse(ano: str) -> int:
             logger.warning("fotos tse {}: nenhuma candidatura carregada; rode tse_candidatos", ano)
             return 0
 
-        async with HttpClient(max_calls_per_minute=30) as client:
+        async with HttpClient(max_calls_per_minute=TSE_CHAMADAS_POR_MINUTO) as client:
             for uf in get_settings().tse_fotos_ufs:
                 url = TSE_FOTOS_URL.format(ano=ano, uf=uf)
                 v = validadores.get(url)
@@ -249,7 +242,6 @@ async def coletar_fotos_tse(ano: str) -> int:
                                 ano=int(ano),
                                 url_origem=f"{url}#{nome}",
                                 imagem=imagem,
-                                etag=None,
                             )
                         )
                 async with sm() as s:

@@ -33,6 +33,8 @@ variáveis `OUROBOROS_*`.
 | `senado_senadores` | API Senado (lista + detalhe) | legislatura |
 | `camara_ceap` | `Ano-{ano}.csv.zip` (cota parlamentar) | ano |
 | `senado_ceaps` | `despesa_ceaps_{ano}.csv` | ano |
+| `fotos_parlamentares` | URL oficial da foto (Câmara, Senado) — só valida, não baixa | `camara`, `senado` |
+| `tse_fotos` | `foto_cand{ano}_{UF}_div.zip` — baixa e serve | ano da eleição |
 
 ## Endpoints
 
@@ -40,7 +42,20 @@ variáveis `OUROBOROS_*`.
 - `GET /v1/politicos/{id}` — perfil: identificadores por fonte, mandatos, gastos por ano
 - `GET /v1/politicos/{id}/mandatos | candidaturas | despesas | despesas/resumo`
 - `GET /v1/despesas?ano=&mes=&verba=&uf=&categoria=&fornecedor=` e `/v1/despesas/resumo`
+- `GET /v1/politicos/{id}/foto` (redireciona para a foto principal) e `/fotos` (todas)
+- `GET /v1/fotos/{id}` — arquivo (fotos do TSE) ou redirecionamento para a URL oficial
 - `GET /v1/entes`, `GET /v1/fontes` (status das ingestões)
+
+## Fotos
+
+Resumo e perfil de político trazem `foto.url`, pronta para `<img src>`:
+- Câmara/Senado: link oficial da casa (nada é armazenado aqui; um HEAD confirma que existe).
+- TSE: o tribunal só publica ZIP por UF e bloqueia link individual (403), então as fotos de
+  candidatos são extraídas para `data/fotos/` (endereçadas por hash) e servidas em
+  `/v1/fotos/{id}` com ETag. ZIP sem mudança não é baixado de novo.
+
+Foto principal: a mais recente (último ano de mandato ou ano da eleição); empate → foto oficial
+da casa; depois maior resolução.
 
 Listagens são paginadas por cursor (`next_cursor`) e respondem CSV com `Accept: text/csv`
 (próximo cursor no header `X-Next-Cursor`). Valores monetários saem como string decimal.
