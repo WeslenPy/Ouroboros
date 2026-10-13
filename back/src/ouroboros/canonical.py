@@ -159,3 +159,83 @@ class EmendaFavorecidoRow(Lineage):
     uf: str | None
     municipio_nome: str | None
     valor: Decimal
+
+
+class EmendaConvenioRow(Lineage):
+    emenda_codigo: str
+    ano: int
+    tipo: str | None
+    funcao: str | None
+    subfuncao: str | None
+    localidade: str | None
+    data_publicacao: date | None
+    convenente: str | None
+    objeto: str | None
+    numero: str | None
+    valor: Decimal
+
+
+class TransferenciaEspecialRow(Lineage):
+    """Plano de ação de uma transferência especial ("emenda Pix")."""
+
+    id: int
+    codigo: str
+    ano: int
+    situacao: str | None
+    emenda_codigo: str | None
+    parlamentar_codigo: str | None
+    parlamentar_nome: str
+    parlamentar_nome_normalizado: str
+    beneficiario_cnpj: str | None
+    beneficiario_nome: str
+    uf: str | None
+    areas: str | None
+    funcao: str | None
+    motivo_impedimento: str | None
+    valor_custeio: Decimal
+    valor_investimento: Decimal
+
+
+class TransferenciaEspecialExecutorRow(Lineage):
+    id: int
+    plano_id: int
+    cnpj: str | None
+    nome: str
+    objeto: str | None
+    areas: list[str]
+    valor_custeio: Decimal
+    valor_investimento: Decimal
+
+
+class TransferenciaEspecialMetaRow(Lineage):
+    id: int
+    executor_id: int
+    sequencial: int | None
+    nome: str | None
+    descricao: str | None
+    unidade: str | None
+    quantidade: Decimal | None
+    meses: int | None
+    valor_custeio: Decimal
+    valor_investimento: Decimal
+
+
+class TransferenciaEspecialEmpenhoRow(Lineage):
+    id: int
+    plano_id: int | None
+    numero: str | None
+    situacao: str | None
+    data_emissao: date | None
+    valor: Decimal
+
+
+class TransferenciaEspecialPagamentoRow(Lineage):
+    """Documento hábil (TF): a transferência do dinheiro ao beneficiário."""
+
+    id: int
+    empenho_id: int | None
+    plano_id: int | None
+    numero: str | None
+    situacao: str | None
+    data_emissao: date | None
+    valor: Decimal

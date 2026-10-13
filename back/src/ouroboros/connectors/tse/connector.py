@@ -4,10 +4,14 @@ Traz CPF, nome civil e nascimento de todo candidato: é a base mais forte para l
 pessoa entre fontes. Cada SQ_CANDIDATO aparece uma vez por turno; fica a linha do último turno.
 
 motivo_cassacao_{ano}.zip explica candidaturas indeferidas/cassadas (ex.: "Ficha limpa (LC 64/90)").
+Só existe para algumas eleições (não há para 2010 e anteriores): sem ele, motivos ficam vazios.
+
+Eleições até 1998 não trazem CPF: a ligação dessas pessoas é por nome civil + nascimento.
 """
 
 from collections.abc import AsyncIterator, Iterator, Sequence
 
+import httpx
 from pydantic import BaseModel
 
 from ouroboros.canonical import CandidaturaRow, PartidoRow, PessoaRow
@@ -63,7 +67,12 @@ class TseCandidatosConnector(HttpConnector):
         async with self.http() as client:
             r = await client.get(CAND_URL.format(ano=particao))
             yield self.raw("consulta_cand", particao, r, "application/zip")
-            r = await client.get(MOTIVO_URL.format(ano=particao))
+            try:
+                r = await client.get(MOTIVO_URL.format(ano=particao))
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in (403, 404):
+                    raise
+                return
             yield self.raw("motivo_cassacao", particao, r, "application/zip")
 
     def transform(self, records: Sequence[RawRecord]) -> Sequence[BaseModel]:

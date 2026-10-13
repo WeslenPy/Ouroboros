@@ -87,7 +87,8 @@ class CamaraDeputadosConnector(HttpConnector):
                 PessoaRow(
                     origem=ORIGEM,
                     id_externo=id_externo,
-                    nome=ultimo["nome"],
+                    # legislaturas antigas vêm sem nome na lista: usa o cadastro
+                    nome=ultimo["nome"] or cad.get("nome") or cad.get("nomeCivil") or id_externo,
                     nome_civil=clean(cad.get("nomeCivil")),
                     data_nascimento=parse_date(cad.get("dataNascimento")),
                     genero=clean(cad.get("siglaSexo")),

@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 
+from ouroboros.analises import gerar_alertas
 from ouroboros.connectors.base import Connector
 from ouroboros.connectors.camara import CamaraCeapConnector, CamaraDeputadosConnector
 from ouroboros.connectors.ibge import IbgeConnector
@@ -109,12 +110,19 @@ JOBS: dict[str, Job] = {
             "tse_fotos",
             "Fotos de todos os candidatos (ZIP por UF do TSE)",
             coletar_fotos_tse,
-            lambda: _s(get_settings().tse_anos),
+            lambda: _s(get_settings().tse_fotos_anos),
         ),
         Job(
             "partidos_logos",
             "Logos dos partidos (Wikidata + Wikimedia Commons)",
             coletar_logos_wikidata,
+            lambda: ["atual"],
+        ),
+        # por último: lê o que os jobs acima carregaram
+        Job(
+            "analises",
+            "Indícios de fraude e desvio (alertas) sobre despesas, emendas e candidaturas",
+            gerar_alertas,
             lambda: ["atual"],
         ),
     ]

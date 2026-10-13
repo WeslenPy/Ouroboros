@@ -6,10 +6,10 @@ https://portaldatransparencia.gov.br/download-de-dados/emendas-parlamentares/UNI
 - EmendasParlamentares.csv: uma linha por emenda x localidade x ação, valores acumulados
   (empenhado, liquidado, pago, restos a pagar).
 - EmendasParlamentares_PorFavorecido.csv: pagamentos por favorecido (CNPJ/CPF) e mês.
-- EmendasParlamentares_Convenios.csv: não usado por ora.
+- EmendasParlamentares_Convenios.csv: convênios firmados com a emenda (convenente, objeto).
 
 Partição = ano (da emenda; do pagamento no arquivo por favorecido). O ZIP é o mesmo para
-todas as partições: cada uma filtra o seu ano.
+todas as partições: cada uma filtra o seu ano, e o download é reaproveitado no processo.
 
 Autor vem só como código CGU + nome parlamentar em maiúsculas ("JANDIRA FEGHALI"); a ligação
 ao político é por nome contra Câmara e Senado (ver loaders.relink_emendas).
@@ -17,13 +17,23 @@ ao político é por nome contra Câmara e Senado (ver loaders.relink_emendas).
 
 import re
 from collections.abc import AsyncIterator, Sequence
+from datetime import date
 from decimal import Decimal
+from typing import ClassVar
 
+from httpx import Response
 from pydantic import BaseModel
 
-from ouroboros.canonical import EmendaFavorecidoRow, EmendaRow
+from ouroboros.canonical import EmendaConvenioRow, EmendaFavorecidoRow, EmendaRow
 from ouroboros.connectors.base import HttpConnector
-from ouroboros.core.parse import clean, parse_decimal, parse_int, read_csv, zip_members
+from ouroboros.core.parse import (
+    clean,
+    parse_date,
+    parse_decimal,
+    parse_int,
+    read_csv,
+    zip_members,
+)
 from ouroboros.core.privacy import documento_publico
 from ouroboros.core.raw_store import RawRecord
 from ouroboros.core.text import normalize
@@ -84,10 +94,19 @@ class TransparenciaEmendasConnector(HttpConnector):
     recurso = "emendas"
     max_calls_per_minute = 10
 
+    # (url, dia) -> resposta: rodar todos os anos baixa o ZIP (~30 MB) uma vez só
+    _cache: ClassVar[dict[tuple[str, date], Response]] = {}
+
     async def extract(self, particao: str) -> AsyncIterator[RawRecord]:
-        async with self.http() as client:
-            r = await client.get(DOWNLOAD_URL)
-            yield self.raw("emendas_zip", particao, r, "application/zip")
+        chave = (DOWNLOAD_URL, date.today())
+        r = self._cache.get(chave) if self._client is None else None
+        if r is None:
+            async with self.http() as client:
+                r = await client.get(DOWNLOAD_URL)
+            if self._client is None:
+                self._cache.clear()
+                self._cache[chave] = r
+        yield self.raw("emendas_zip", particao, r, "application/zip")
 
     def transform(self, records: Sequence[RawRecord]) -> Sequence[BaseModel]:
         rows: list[BaseModel] = []
@@ -99,7 +118,36 @@ class TransparenciaEmendasConnector(HttpConnector):
             favorecidos = next((v for k, v in membros.items() if "PorFavorecido" in k), b"")
             rows.extend(self._emendas(emendas, ano, lineage))
             rows.extend(self._favorecidos(favorecidos, ano, lineage))
+            convenios = next((v for k, v in membros.items() if "Convenios" in k), b"")
+            rows.extend(self._convenios(convenios, ano, lineage))
         return rows
+
+    @staticmethod
+    def _convenios(data: bytes, ano: int, lineage: dict) -> list[EmendaConvenioRow]:
+        """Ano vem dos 4 primeiros dígitos do código da emenda (não há coluna de ano)."""
+        out: list[EmendaConvenioRow] = []
+        prefixo = str(ano)
+        for r in read_csv(data, encoding="latin-1"):
+            codigo = r["Código da Emenda"].strip()
+            if not codigo.startswith(prefixo):
+                continue
+            out.append(
+                EmendaConvenioRow(
+                    emenda_codigo=codigo,
+                    ano=ano,
+                    tipo=_txt(r["Tipo de Emenda"]),
+                    funcao=_txt(r["Nome Função"]),
+                    subfuncao=_txt(r["Nome Subfunção"]),
+                    localidade=_txt(r["Localidade do gasto"]),
+                    data_publicacao=parse_date(r["Data Publicação Convênio"], "%d/%m/%Y"),
+                    convenente=_txt(r["Convenente"]),
+                    objeto=_txt(r["Objeto Convênio"]),
+                    numero=_txt(r["Número Convênio"]),
+                    valor=_valor(r["Valor Convênio"]),
+                    **lineage,
+                )
+            )
+        return out
 
     @staticmethod
     def _emendas(data: bytes, ano: int, lineage: dict) -> list[EmendaRow]:

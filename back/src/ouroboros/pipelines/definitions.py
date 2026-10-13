@@ -22,6 +22,7 @@ GRUPO = {
     "fotos_parlamentares": "fotos",
     "tse_fotos": "fotos",
     "partidos_logos": "fotos",
+    "analises": "analises",
 }
 
 
